@@ -1,0 +1,38 @@
+:root {
+  --hersheys-chocolate: #3e000f;
+  --hersheys-sienna: #381216;
+  --hersheys-silver: #a8a9ad;
+  --hersheys-white: #ffffff;
+
+  --bg: var(--hersheys-white);
+  --text: #171717;
+  --muted: #525252;
+  --border: rgba(0, 0, 0, 0.12);
+  --surface: rgba(0, 0, 0, 0.04);
+  --shadow: rgba(0, 0, 0, 0.14) 0 10px 20px -10px;
+
+  --accent: var(--hersheys-chocolate);
+  --accent-contrast: var(--hersheys-white);
+  --accent-2: var(--hersheys-sienna);
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 16px/145% system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}

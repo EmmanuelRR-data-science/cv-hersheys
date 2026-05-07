@@ -1,0 +1,189 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: hersheys_cv
+      POSTGRES_USER: hersheys
+      POSTGRES_PASSWORD: hersheys
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hersheys -d hersheys_cv"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BUCKET: hersheys-cv-storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://hersheys:hersheys@postgres:5432/hersheys_cv
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: hersheys-cv-storage
+      JWT_SECRET_KEY: dev-secret-dev-secret-dev-secret-dev-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command:
+      [
+        "sh",
+        "-lc",
+        "/app/.venv/bin/python -m app.db.init_db && /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000",
+      ]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "8000:8000"
+
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql://hersheys:hersheys@postgres:5432/hersheys_cv
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: hersheys-cv-storage
+      JWT_SECRET_KEY: dev-secret-dev-secret-dev-secret-dev-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  backend-tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /app
+    environment:
+      RUN_INTEGRATION_TESTS: "1"
+      HERSHEYS_BASE_URL: http://backend-api:8000
+      HERSHEYS_DASHBOARD_URL: http://dashboard:5173
+      HERSHEYS_MOBILE_URL: http://mobile-app:5174
+      HERSHEYS_MINIO_ENDPOINT: http://minio:9000
+      HERSHEYS_MINIO_ACCESS_KEY: minioadmin
+      HERSHEYS_MINIO_SECRET_KEY: minioadmin
+      HERSHEYS_MINIO_BUCKET: hersheys-cv-storage
+      HERSHEYS_DATABASE_URL: postgresql://hersheys:hersheys@postgres:5432/hersheys_cv
+    volumes:
+      - ./backend/tests:/tests:ro
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      backend-worker:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+      mobile-app:
+        condition: service_started
+    command:
+      [
+        "sh",
+        "-lc",
+        "uv sync --frozen && /app/.venv/bin/python -c 'code = \"\"\"import time\nimport urllib.request\n\nurls = [\n    \"http://dashboard:5173/health\",\n    \"http://mobile-app:5174/\",\n    \"http://backend-api:8000/health\",\n]\n\ndeadline = time.time() + 120.0\nfor url in urls:\n    while True:\n        try:\n            with urllib.request.urlopen(url, timeout=3) as resp:\n                resp.read(256)\n            break\n        except Exception:\n            if time.time() > deadline:\n                raise\n            time.sleep(1.0)\n\"\"\"; exec(code)' && /app/.venv/bin/pytest -q -p no:cacheprovider -m integration /tests/test_integration_e2e.py /tests/test_integration_frontends.py /tests/test_smoke_containers.py",
+      ]
+
+  dashboard:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./dashboard:/app
+      - dashboard_node_modules:/app/node_modules
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    command:
+      [
+        "sh",
+        "-lc",
+        "npm install --no-audit --no-fund --no-package-lock && npm run dev -- --host 0.0.0.0 --port 5173",
+      ]
+    ports:
+      - "5173:5173"
+
+  mobile-app:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./mobile-app:/app
+      - mobile_app_node_modules:/app/node_modules
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_USERNAME: hersheys
+      VITE_API_PASSWORD: cv-hersheys
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    command:
+      [
+        "sh",
+        "-lc",
+        "npm install --no-audit --no-fund --no-package-lock && npm run dev -- --host 0.0.0.0 --port 5174",
+      ]
+    ports:
+      - "5174:5174"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  dashboard_node_modules:
+  mobile_app_node_modules:
