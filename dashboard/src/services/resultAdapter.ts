@@ -36,12 +36,14 @@ function hashSeed(seed: string): number {
 }
 
 function getTopStores(conteoGeneral: unknown, suggestedPrice: number): SalesTopStore[] {
+  const fallbackStores: SalesTopStore[] = [
+    { storeName: 'Walmart Universidad', units: 180, revenue: round(180 * suggestedPrice) },
+    { storeName: 'Soriana Coyoacan', units: 150, revenue: round(150 * suggestedPrice) },
+    { storeName: 'Chedraui Selecto', units: 120, revenue: round(120 * suggestedPrice) },
+  ]
+
   if (!isRecord(conteoGeneral)) {
-    return [
-      { storeName: 'Walmart Universidad', units: 180, revenue: round(180 * suggestedPrice) },
-      { storeName: 'Soriana Coyoacan', units: 150, revenue: round(150 * suggestedPrice) },
-      { storeName: 'Chedraui Selecto', units: 120, revenue: round(120 * suggestedPrice) },
-    ]
+    return fallbackStores
   }
 
   const mapped = Object.entries(conteoGeneral)
@@ -55,16 +57,23 @@ function getTopStores(conteoGeneral: unknown, suggestedPrice: number): SalesTopS
       revenue: round(entry.units * 10 * suggestedPrice),
     }))
 
-  return mapped.length ? mapped : getTopStores(null, suggestedPrice)
+  if (mapped.length >= 3) {
+    return mapped
+  }
+
+  const usedNames = new Set(mapped.map((store) => store.storeName))
+  const missing = 3 - mapped.length
+  const fillers = fallbackStores.filter((store) => !usedNames.has(store.storeName)).slice(0, missing)
+  return [...mapped, ...fillers]
 }
 
 function buildSeries30d(seed: number, unitsSold: number, suggestedPrice: number): ResultSalesData['series30d'] {
-  const seriesEndDate = new Date(Date.UTC(2026, 0, 1))
-  seriesEndDate.setUTCDate(seriesEndDate.getUTCDate() + (seed % 365))
+  const dayMs = 24 * 60 * 60 * 1000
+  const seriesEndMs = Date.UTC(2026, 0, 1) + (seed % 365) * dayMs
   const baseUnits = Math.max(4, Math.round(unitsSold / 30))
   return Array.from({ length: 30 }).map((_, idx) => {
-    const day = new Date(seriesEndDate)
-    day.setUTCDate(seriesEndDate.getUTCDate() - (29 - idx))
+    const currentMs = seriesEndMs - (29 - idx) * dayMs
+    const day = new Date(currentMs)
     const offset = ((seed + idx) % 7) - 3
     const units = Math.max(1, baseUnits + offset)
     return {

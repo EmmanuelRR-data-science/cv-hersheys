@@ -86,9 +86,9 @@ curl -sS http://localhost:8000/api/v1/me -H "Authorization: Bearer <JWT>"
 2. Paste the `access_token`
 3. Browse results, use search and filters, open details
 
-### 3) Mobile app (fixed credentials)
+### 3) Mobile app (runtime credentials)
 
-The compose configuration provides `VITE_API_USERNAME`/`VITE_API_PASSWORD` so the mobile app can fetch a token automatically.
+La app movil solicita credenciales API en tiempo de ejecucion cuando no existe sesion activa.
 
 1. Open http://localhost:5174
 2. Capture an image

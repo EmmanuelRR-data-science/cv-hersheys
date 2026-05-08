@@ -81,23 +81,30 @@ export async function detectHersheysProduct(blob: Blob): Promise<boolean> {
     return false
   }
 
+  let bitmap: ImageBitmap | null = null
   try {
-    const bitmap = await createImageBitmap(blob)
+    bitmap = await createImageBitmap(blob)
     const canvas = document.createElement('canvas')
     canvas.width = 64
     canvas.height = 64
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      bitmap.close()
       return false
     }
 
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    bitmap.close()
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     return detectHersheysFromRgba(imageData.data)
   } catch {
     return false
+  } finally {
+    if (bitmap) {
+      try {
+        bitmap.close()
+      } catch {
+        // Ignore cleanup errors to avoid masking detection result.
+      }
+    }
   }
 }

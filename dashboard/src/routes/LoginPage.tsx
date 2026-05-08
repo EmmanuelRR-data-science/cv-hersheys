@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { config } from '../config'
 import { setToken } from '../auth/token'
 import { login } from '../services/api'
 
 export function LoginPage() {
-  const [username, setUsername] = useState(config.apiUsername)
-  const [password, setPassword] = useState(config.apiPassword)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [status, setStatus] = useState<'idle' | 'validating' | 'error'>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const navigate = useNavigate()

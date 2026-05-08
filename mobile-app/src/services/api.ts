@@ -11,6 +11,12 @@ type StoredAuth = {
 }
 
 const STORAGE_KEY = 'hersheys_cv_auth'
+const CREDENTIALS_KEY = 'hersheys_cv_mobile_credentials'
+
+type StoredCredentials = {
+  username: string
+  password: string
+}
 
 function readStoredAuth(): StoredAuth | null {
   try {
@@ -30,6 +36,31 @@ function writeStoredAuth(auth: StoredAuth | null): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(auth))
 }
 
+function readStoredCredentials(): StoredCredentials | null {
+  try {
+    const raw = localStorage.getItem(CREDENTIALS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredCredentials>
+    if (typeof parsed.username !== 'string' || typeof parsed.password !== 'string') return null
+    if (!parsed.username.trim() || !parsed.password.trim()) return null
+    return { username: parsed.username.trim(), password: parsed.password.trim() }
+  } catch {
+    return null
+  }
+}
+
+function writeStoredCredentials(credentials: StoredCredentials): void {
+  localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(credentials))
+}
+
+function promptForCredentials(): StoredCredentials | null {
+  if (typeof window === 'undefined' || typeof window.prompt !== 'function') return null
+  const username = window.prompt('Usuario API')?.trim() ?? ''
+  const password = window.prompt('Contrasena API')?.trim() ?? ''
+  if (!username || !password) return null
+  return { username, password }
+}
+
 function isTokenFresh(token: string): boolean {
   const payload = decodeJwtPayload(token)
   if (!payload?.exp) return false
@@ -38,10 +69,16 @@ function isTokenFresh(token: string): boolean {
 }
 
 export async function login(): Promise<string> {
+  const credentials = readStoredCredentials() ?? promptForCredentials()
+  if (!credentials) {
+    throw new Error('Missing API credentials')
+  }
+  writeStoredCredentials(credentials)
+
   const response = await fetch(`${config.apiBaseUrl}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: config.apiUsername, password: config.apiPassword }),
+    body: JSON.stringify({ username: credentials.username, password: credentials.password }),
   })
   if (!response.ok) {
     throw new Error(`login failed: ${response.status}`)

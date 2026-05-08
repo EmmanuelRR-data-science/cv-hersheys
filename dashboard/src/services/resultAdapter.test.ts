@@ -2,6 +2,14 @@ import { describe, expect, test } from 'vitest'
 
 import { adaptResult, adaptResultList, isSalesData } from './resultAdapter'
 
+function hashSeed(seed: string): number {
+  let hash = 0
+  for (let idx = 0; idx < seed.length; idx += 1) {
+    hash = (hash * 31 + seed.charCodeAt(idx)) >>> 0
+  }
+  return hash
+}
+
 describe('resultAdapter', () => {
   test('adapta payload externo con typos y genera sales estable', () => {
     const adapted = adaptResult({
@@ -34,7 +42,7 @@ describe('resultAdapter', () => {
     expect(adapted.results?.sales).toBeTruthy()
     expect(adapted.results?.sales?.product.brand).toBe("Hershey's")
     expect(adapted.results?.sales?.series30d).toHaveLength(30)
-    expect(adapted.results?.sales?.topStores.length).toBeGreaterThanOrEqual(1)
+    expect(adapted.results?.sales?.topStores.length).toBeGreaterThanOrEqual(3)
     expect(adapted.results?.sales?.pricing.currency).toBe('MXN')
 
     const series = adapted.results?.sales?.series30d ?? []
@@ -96,5 +104,57 @@ describe('resultAdapter', () => {
     }
 
     expect(isSalesData(invalid)).toBe(false)
+  })
+
+  test('completa topStores hasta minimo 3 cuando conteo_general es pequeno', () => {
+    const adapted = adaptResult({
+      id: 'r-external-small-stores',
+      image_id: 'img-small',
+      status: 'processed',
+      results: {
+        filename: 'img-small.jpg',
+        total_productos: 5,
+        conteo_general: {
+          'Tienda unica': 1,
+        },
+        precios: {
+          'Tienda unica': { precio: '19.50' },
+        },
+      },
+    })
+
+    const topStores = adapted.results?.sales?.topStores ?? []
+    expect(topStores).toHaveLength(3)
+    expect(topStores[0]?.storeName).toBe('Tienda unica')
+  })
+
+  test('series30d mantiene diferencia de 29 dias al cruzar mes', () => {
+    const imageId = Array.from({ length: 1000 })
+      .map((_, idx) => `img-${idx}`)
+      .find((candidate) => hashSeed(candidate) % 365 === 50)
+
+    expect(imageId).toBeTruthy()
+
+    const adapted = adaptResult({
+      id: 'r-cross-month',
+      image_id: imageId,
+      status: 'processed',
+      results: {
+        filename: `${imageId}.jpg`,
+        total_productos: 18,
+        conteo_general: { 'Walmart Universidad': 5 },
+        precios: { 'Walmart Universidad': { precio: '20.0' } },
+      },
+    })
+
+    const series = adapted.results?.sales?.series30d ?? []
+    const first = new Date(`${series[0]?.date}T00:00:00.000Z`)
+    const last = new Date(`${series[series.length - 1]?.date}T00:00:00.000Z`)
+    const diffDays = Math.round((last.getTime() - first.getTime()) / (24 * 60 * 60 * 1000))
+
+    expect(series).toHaveLength(30)
+    expect(last.toISOString().slice(0, 10)).toBe('2026-02-20')
+    expect(first.toISOString().slice(0, 10)).toBe('2026-01-22')
+    expect(diffDays).toBe(29)
   })
 })
