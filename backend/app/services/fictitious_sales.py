@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TypedDict
 
 
@@ -82,12 +82,18 @@ def _noise(seed: int, step: int, span: int) -> int:
     return ((seed >> (step % 23)) + (step + 1) * 17) % span
 
 
+def _series_end_date(seed: int) -> date:
+    # Keep generated history fully deterministic from seed/image_id.
+    start = date(2026, 1, 1)
+    return start + timedelta(days=seed % 365)
+
+
 def _build_series(seed: int, *, suggested_price: float) -> list[SalesSeriesPoint]:
-    today = datetime.now(tz=UTC).date()
+    end_date = _series_end_date(seed)
     base_units = 28 + (seed % 14)
     points: list[SalesSeriesPoint] = []
     for idx in range(30):
-        day: date = today - timedelta(days=29 - idx)
+        day = end_date - timedelta(days=29 - idx)
         variance = _noise(seed, idx, 15) - 7
         units = max(8, base_units + variance)
         points.append(

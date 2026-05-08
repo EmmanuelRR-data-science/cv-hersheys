@@ -59,11 +59,12 @@ function getTopStores(conteoGeneral: unknown, suggestedPrice: number): SalesTopS
 }
 
 function buildSeries30d(seed: number, unitsSold: number, suggestedPrice: number): ResultSalesData['series30d'] {
-  const startDate = new Date('2026-04-01T00:00:00.000Z')
+  const seriesEndDate = new Date(Date.UTC(2026, 0, 1))
+  seriesEndDate.setUTCDate(seriesEndDate.getUTCDate() + (seed % 365))
   const baseUnits = Math.max(4, Math.round(unitsSold / 30))
   return Array.from({ length: 30 }).map((_, idx) => {
-    const day = new Date(startDate)
-    day.setUTCDate(startDate.getUTCDate() + idx)
+    const day = new Date(seriesEndDate)
+    day.setUTCDate(seriesEndDate.getUTCDate() - (29 - idx))
     const offset = ((seed + idx) % 7) - 3
     const units = Math.max(1, baseUnits + offset)
     return {
@@ -126,6 +127,16 @@ function isLikelyExternalPayload(raw: Record<string, unknown>): boolean {
   ].some((key) => key in raw)
 }
 
+function isSalesSeriesPoint(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return typeof value.date === 'string' && typeof value.units === 'number' && typeof value.revenue === 'number'
+}
+
+function isTopStore(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return typeof value.storeName === 'string' && typeof value.units === 'number' && typeof value.revenue === 'number'
+}
+
 export function isSalesData(value: unknown): value is ResultSalesData {
   if (!isRecord(value)) return false
   if (!isRecord(value.product) || !isRecord(value.pricing) || !isRecord(value.kpis)) return false
@@ -145,7 +156,9 @@ export function isSalesData(value: unknown): value is ResultSalesData {
     typeof value.context.channel === 'string' &&
     typeof value.context.region === 'string' &&
     typeof value.context.storeCount === 'number' &&
-    typeof value.trend.weeklyTrendPct === 'number'
+    typeof value.trend.weeklyTrendPct === 'number' &&
+    value.series30d.every(isSalesSeriesPoint) &&
+    value.topStores.every(isTopStore)
   )
 }
 

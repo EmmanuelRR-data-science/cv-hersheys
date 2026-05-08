@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { adaptResult, adaptResultList } from './resultAdapter'
+import { adaptResult, adaptResultList, isSalesData } from './resultAdapter'
 
 describe('resultAdapter', () => {
   test('adapta payload externo con typos y genera sales estable', () => {
@@ -36,6 +36,10 @@ describe('resultAdapter', () => {
     expect(adapted.results?.sales?.series30d).toHaveLength(30)
     expect(adapted.results?.sales?.topStores.length).toBeGreaterThanOrEqual(1)
     expect(adapted.results?.sales?.pricing.currency).toBe('MXN')
+
+    const series = adapted.results?.sales?.series30d ?? []
+    expect(series[0]?.date).toMatch(/^2026-/)
+    expect(series[series.length - 1]?.date).toMatch(/^2026-/)
   })
 
   test('respeta sales existentes ya validos', () => {
@@ -78,5 +82,19 @@ describe('resultAdapter', () => {
     expect(list.total).toBe(2)
     expect(list.items).toHaveLength(2)
     expect(list.items[0].id).toBe('r1')
+  })
+
+  test('isSalesData falla cuando series/topStores tienen estructura invalida', () => {
+    const invalid = {
+      product: { brand: "Hershey's", productName: 'Kisses', sku: 'HSY-KISSES-001', category: 'Chocolate' },
+      pricing: { suggestedPrice: 59.9, currency: 'MXN' },
+      kpis: { unitsSold: 1200, estimatedRevenue: 71880, estimatedMarginPct: 31.5 },
+      context: { channel: 'Autoservicio', region: 'Centro', storeCount: 20 },
+      trend: { weeklyTrendPct: 4.2 },
+      series30d: [{ date: '2026-04-01', units: 38 }],
+      topStores: [{ storeName: 'Walmart Universidad', units: 180, revenue: 10782 }],
+    }
+
+    expect(isSalesData(invalid)).toBe(false)
   })
 })

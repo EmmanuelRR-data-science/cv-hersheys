@@ -44,9 +44,12 @@ function App() {
           <CameraCapture
             onCaptured={async (data) => {
               setAnalyzingCapture(true)
-              const detectedHersheys = await detectHersheysProduct(data.blob)
-              setCaptured({ ...data, detectedHersheys })
-              setAnalyzingCapture(false)
+              try {
+                const detectedHersheys = await detectHersheysProduct(data.blob)
+                setCaptured({ ...data, detectedHersheys })
+              } finally {
+                setAnalyzingCapture(false)
+              }
             }}
           />
         )}
