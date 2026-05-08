@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.db.engine import _to_async_database_url
 from app.models.image import Image
 from app.models.result import ProcessingResult
+from app.services.fictitious_sales import build_fictitious_sales
 from app.services.storage import ensure_bucket, get_bytes
 
 __import__("app.models.user")
@@ -51,10 +52,11 @@ async def _process_image(session: AsyncSession, image_id: str) -> None:
 
     started = perf_counter()
     now = datetime.now(tz=UTC)
+    sales = build_fictitious_sales(image_id=str(image.id))
     result = ProcessingResult(
         image_id=image.id,
         status="processed",
-        results={"placeholder": True},
+        results={"placeholder": True, "sales": sales},
         processed_at=now,
         processing_time_ms=int((perf_counter() - started) * 1000),
         error_message=None,

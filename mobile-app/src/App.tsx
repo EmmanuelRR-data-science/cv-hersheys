@@ -6,13 +6,15 @@ import { ImagePreview } from './components/ImagePreview/ImagePreview'
 import { Header } from './components/UI/Header'
 import { useOffline } from './hooks/useOffline'
 import { useUpload } from './hooks/useUpload'
+import { detectHersheysProduct } from './services/hersheysDetection'
 
-type Captured = { blob: Blob; filename: string; contentType: string }
+type Captured = { blob: Blob; filename: string; contentType: string; detectedHersheys: boolean }
 
 function App() {
   const { isOnline } = useOffline()
   const { state, upload, drainQueue } = useUpload({ isOnline })
   const [captured, setCaptured] = useState<Captured | null>(null)
+  const [analyzingCapture, setAnalyzingCapture] = useState(false)
 
   useEffect(() => {
     if (isOnline) {
@@ -20,7 +22,7 @@ function App() {
     }
   }, [isOnline, drainQueue])
 
-  const busy = state.status === 'uploading'
+  const busy = state.status === 'uploading' || analyzingCapture
 
   return (
     <div className="app">
@@ -29,15 +31,24 @@ function App() {
         {captured ? (
           <ImagePreview
             blob={captured.blob}
+            detectedHersheys={captured.detectedHersheys}
             busy={busy}
             onRetake={() => setCaptured(null)}
             onConfirm={async () => {
+              if (!captured.detectedHersheys) return
               await upload(captured)
               setCaptured(null)
             }}
           />
         ) : (
-          <CameraCapture onCaptured={(data) => setCaptured(data)} />
+          <CameraCapture
+            onCaptured={async (data) => {
+              setAnalyzingCapture(true)
+              const detectedHersheys = await detectHersheysProduct(data.blob)
+              setCaptured({ ...data, detectedHersheys })
+              setAnalyzingCapture(false)
+            }}
+          />
         )}
 
         <div className="status-card">
@@ -50,6 +61,7 @@ function App() {
             <div className="status-value">{state.progressPct}%</div>
           </div>
           {state.message ? <div className="status-message">{state.message}</div> : null}
+          {analyzingCapture ? <div className="status-message">Analizando producto en la imagen...</div> : null}
         </div>
       </main>
     </div>

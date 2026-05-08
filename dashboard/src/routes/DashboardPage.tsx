@@ -150,7 +150,8 @@ export function DashboardPage() {
     <div className="dash">
       <header className="dash-header">
         <div className="dash-title">
-          Hershey's CV Dashboard
+          <img className="hersheys-logo-header" src="/hersheys-logo.svg" alt="Logo Hershey's" />
+          <span>Hershey's CV Dashboard</span>
           {hasNewResults ? <span className="notif-dot" aria-label="Nuevos resultados disponibles" /> : null}
         </div>
         <div className="dash-actions">

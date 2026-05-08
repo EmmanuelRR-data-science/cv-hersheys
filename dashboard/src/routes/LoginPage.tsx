@@ -32,6 +32,7 @@ export function LoginPage() {
   return (
     <div className="page">
       <div className="card">
+        <img className="hersheys-logo-login" src="/hersheys-logo.svg" alt="Logo Hershey's" />
         <h1 className="title">Dashboard</h1>
         <p className="subtitle">Pega un token JWT para iniciar sesión</p>
 

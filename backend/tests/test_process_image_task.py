@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -10,6 +11,44 @@ from app.models.image import Image
 from app.models.result import ProcessingResult
 from app.models.user import User
 from app.tasks.process_image import _process_image
+
+
+def _assert_sales_payload(payload: dict[str, Any]) -> None:
+    assert payload["product"]["brand"] == "Hershey's"
+    assert isinstance(payload["product"]["productName"], str)
+    assert isinstance(payload["product"]["sku"], str)
+    assert isinstance(payload["product"]["category"], str)
+
+    assert payload["pricing"]["currency"] == "MXN"
+    assert isinstance(payload["pricing"]["suggestedPrice"], float)
+
+    assert isinstance(payload["kpis"]["unitsSold"], int)
+    assert isinstance(payload["kpis"]["estimatedRevenue"], float)
+    assert isinstance(payload["kpis"]["estimatedMarginPct"], float)
+
+    assert isinstance(payload["context"]["channel"], str)
+    assert isinstance(payload["context"]["region"], str)
+    assert isinstance(payload["context"]["storeCount"], int)
+
+    assert isinstance(payload["trend"]["weeklyTrendPct"], float)
+
+    series = payload["series30d"]
+    assert isinstance(series, list)
+    assert len(series) == 30
+    for item in series:
+        assert set(item.keys()) == {"date", "units", "revenue"}
+        assert isinstance(item["date"], str)
+        assert isinstance(item["units"], int)
+        assert isinstance(item["revenue"], float)
+
+    stores = payload["topStores"]
+    assert isinstance(stores, list)
+    assert 3 <= len(stores) <= 5
+    for store in stores:
+        assert set(store.keys()) == {"storeName", "units", "revenue"}
+        assert isinstance(store["storeName"], str)
+        assert isinstance(store["units"], int)
+        assert isinstance(store["revenue"], float)
 
 
 def test_process_image_creates_processing_result_and_updates_status(tmp_path) -> None:
@@ -51,6 +90,9 @@ def test_process_image_creates_processing_result_and_updates_status(tmp_path) ->
             assert len(results) == 1
             assert results[0].image_id == reloaded.id
             assert results[0].status == "processed"
-            assert results[0].results == {"placeholder": True}
+            assert results[0].results is not None
+            assert results[0].results.get("placeholder") is True
+            assert "sales" in results[0].results
+            _assert_sales_payload(results[0].results["sales"])
 
     asyncio.run(run())

@@ -142,6 +142,10 @@ def test_integration_end_to_end_upload_process_result() -> None:
                     if item.get("status") == "processed":
                         payload = item.get("results") or {}
                         assert payload.get("placeholder") is True
+                        sales = payload.get("sales") or {}
+                        assert sales.get("product", {}).get("brand") == "Hershey's"
+                        assert len(sales.get("series30d") or []) == 30
+                        assert 3 <= len(sales.get("topStores") or []) <= 5
                         return
                     if item.get("status") == "processing_failed":
                         pytest.fail(f"processing failed: {item}")

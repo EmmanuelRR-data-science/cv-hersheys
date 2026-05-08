@@ -18,6 +18,19 @@
   box-shadow: var(--shadow);
 }
 
+.ui-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-header-logo {
+  width: 96px;
+  max-width: 36vw;
+  height: auto;
+  border-radius: 6px;
+}
+
 .ui-header-title {
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -90,6 +103,17 @@
 .preview-img {
   width: 100%;
   display: block;
+}
+
+.capture-warning {
+  margin: 10px;
+  border: 1px solid #7f1d1d;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .preview-actions {
