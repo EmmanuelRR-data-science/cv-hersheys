@@ -2,28 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { getToken } from '../auth/token'
-import { getImage, getImageFile, getResult, type ResultItem, type ResultSalesData } from '../services/api'
-
-type ImageMeta = {
-  id: string
-  original_filename: string
-  format: string
-  size_bytes: number
-  status: string
-  created_at: string
-}
-
-function isSalesData(value: unknown): value is ResultSalesData {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<ResultSalesData>
-  return (
-    typeof candidate.product?.brand === 'string' &&
-    typeof candidate.product?.productName === 'string' &&
-    typeof candidate.pricing?.suggestedPrice === 'number' &&
-    Array.isArray(candidate.series30d) &&
-    Array.isArray(candidate.topStores)
-  )
-}
+import { getImage, getImageFile, getResult, type ImageItem, type ResultItem } from '../services/api'
+import { isSalesData } from '../services/resultAdapter'
 
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount)
@@ -37,7 +17,7 @@ export function ResultDetailPage() {
   const token = useMemo(() => getToken(), [])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [result, setResult] = useState<ResultItem | null>(null)
-  const [image, setImage] = useState<ImageMeta | null>(null)
+  const [image, setImage] = useState<ImageItem | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const salesData = useMemo(() => {
     const sales = result?.results?.sales
@@ -50,7 +30,7 @@ export function ResultDetailPage() {
       return
     }
     if (!resultId) {
-      setStatus('error')
+      navigate('/')
       return
     }
 
@@ -66,7 +46,7 @@ export function ResultDetailPage() {
 
         const img = await getImage({ token, imageId: r.image_id })
         if (cancelled) return
-        setImage(img as ImageMeta)
+        setImage(img)
 
         const blob = await getImageFile({ token, imageId: r.image_id })
         if (cancelled) return

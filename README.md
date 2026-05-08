@@ -2,6 +2,15 @@
 
 Full-stack image processing system for capturing product images on mobile (PWA), processing them via a FastAPI + Celery pipeline, and reviewing results in a web dashboard.
 
+## Current Documentation Sync
+
+- Contract source of truth: `SPEC_DRIVEN_CONTRACT.md`
+- Latest verification report: `TESTING_REPORT.md`
+- Current dashboard behavior:
+  - accepts flexible external payloads in `results` via adapter,
+  - normalizes them to a stable `sales` view model,
+  - keeps deterministic mock/fallback data when source fields are missing.
+
 ## Services (Docker Compose)
 
 | Service | URL / Port | Purpose |

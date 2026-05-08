@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { getMe, listResults, login } from './api'
+import { getMe, getResult, listResults, login } from './api'
 
 const fetchMock = vi.fn()
-// @ts-ignore test
+// @ts-expect-error test
 globalThis.fetch = fetchMock
 
 describe('api', () => {
@@ -33,6 +33,32 @@ describe('api', () => {
     const res = await listResults({ token: 't1', page: 1, limit: 10 })
     expect(res.total).toBe(1)
     expect(res.items[0].id).toBe('r1')
+  })
+
+  test('getResult adapta payload externo a sales para dashboard', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'r-external-1',
+        image_id: 'img28',
+        status: 'processed',
+        results: {
+          filename: 'img28.jpg',
+          total_productos: 18,
+          conteo_general: {
+            "Habanera Roja La Guacamaya": 3,
+          },
+          precios: {
+            "Habanera Roja La Guacamaya": { precio: '14.99', oferta: 'si' },
+          },
+        },
+      }),
+    })
+
+    const result = await getResult({ token: 't1', resultId: 'r-external-1' })
+    expect(result.results?.sales).toBeTruthy()
+    expect(result.results?.sales?.series30d).toHaveLength(30)
   })
 
   test('login sends username and password', async () => {
