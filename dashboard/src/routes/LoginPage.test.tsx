@@ -7,7 +7,7 @@ import { LoginPage } from './LoginPage'
 
 vi.mock('../services/api', () => {
   return {
-    getMe: vi.fn(async () => ({ username: 'hersheys', role: 'analyst' })),
+    login: vi.fn(async () => ({ access_token: 'token-123', token_type: 'bearer' })),
   }
 })
 
@@ -16,7 +16,7 @@ describe('LoginPage', () => {
     localStorage.clear()
   })
 
-  test('stores token after validation', async () => {
+  test('stores token after username and password login', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -24,8 +24,12 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     )
 
-    const input = screen.getByLabelText(/token/i)
-    await user.type(input, 'token-123')
+    const usernameInput = screen.getByLabelText(/usuario/i)
+    const passwordInput = screen.getByLabelText(/contraseña/i)
+    await user.clear(usernameInput)
+    await user.type(usernameInput, 'hersheys')
+    await user.clear(passwordInput)
+    await user.type(passwordInput, 'cv-hersheys')
     await user.click(screen.getByRole('button', { name: /entrar/i }))
 
     expect(localStorage.getItem('hersheys_cv_dashboard_token')).toBe('token-123')

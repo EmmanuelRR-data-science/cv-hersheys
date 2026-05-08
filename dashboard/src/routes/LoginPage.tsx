@@ -1,29 +1,35 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { config } from '../config'
 import { setToken } from '../auth/token'
-import { getMe } from '../services/api'
+import { login } from '../services/api'
 
 export function LoginPage() {
-  const [tokenInput, setTokenInput] = useState('')
+  const [username, setUsername] = useState(config.apiUsername)
+  const [password, setPassword] = useState(config.apiPassword)
   const [status, setStatus] = useState<'idle' | 'validating' | 'error'>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  const canSubmit = useMemo(() => tokenInput.trim().length > 0 && status !== 'validating', [tokenInput, status])
+  const canSubmit = useMemo(
+    () => username.trim().length > 0 && password.trim().length > 0 && status !== 'validating',
+    [password, status, username],
+  )
 
   const submit = async () => {
-    const token = tokenInput.trim()
-    if (!token) return
+    const safeUsername = username.trim()
+    const safePassword = password.trim()
+    if (!safeUsername || !safePassword) return
     setStatus('validating')
     setMessage(null)
     try {
-      await getMe({ token })
-      setToken(token)
+      const tokenResponse = await login({ username: safeUsername, password: safePassword })
+      setToken(tokenResponse.access_token)
       navigate('/')
     } catch {
       setStatus('error')
-      setMessage('Token inválido o expirado.')
+      setMessage('Usuario o contraseña inválidos.')
     } finally {
       setStatus('idle')
     }
@@ -34,16 +40,28 @@ export function LoginPage() {
       <div className="card">
         <img className="hersheys-logo-login" src="/hersheys-logo.svg" alt="Logo Hershey's" />
         <h1 className="title">Dashboard</h1>
-        <p className="subtitle">Pega un token JWT para iniciar sesión</p>
+        <p className="subtitle">Ingresa con usuario y contraseña para iniciar sesión</p>
 
         <label className="label">
-          Token
-          <textarea
+          Usuario
+          <input
             className="input"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            rows={5}
-            placeholder="Bearer ..."
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            placeholder="usuario"
+          />
+        </label>
+
+        <label className="label">
+          Contraseña
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            placeholder="contraseña"
           />
         </label>
 

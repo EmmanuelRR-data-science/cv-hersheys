@@ -6,11 +6,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   server: {
     host: true,
-    allowedHosts: ['localhost', '127.0.0.1', 'mobile-app'],
+    allowedHosts: true,
   },
   preview: {
     host: true,
-    allowedHosts: ['localhost', '127.0.0.1', 'mobile-app'],
+    allowedHosts: true,
   },
   plugins: [
     react(),

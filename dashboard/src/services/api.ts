@@ -5,6 +5,11 @@ export type MeResponse = {
   role: string
 }
 
+export type TokenResponse = {
+  access_token: string
+  token_type: string
+}
+
 export type SalesSeriesPoint = {
   date: string
   units: number
@@ -81,6 +86,18 @@ export async function getMe(params: { token: string }): Promise<MeResponse> {
     throw new Error(`me failed: ${response.status}`)
   }
   return (await response.json()) as MeResponse
+}
+
+export async function login(params: { username: string; password: string }): Promise<TokenResponse> {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: params.username, password: params.password }),
+  })
+  if (!response.ok) {
+    throw new Error(`login failed: ${response.status}`)
+  }
+  return (await response.json()) as TokenResponse
 }
 
 export async function listResults(params: {

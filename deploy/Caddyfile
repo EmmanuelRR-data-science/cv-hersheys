@@ -1,0 +1,11 @@
+{$DASHBOARD_DOMAIN} {
+  reverse_proxy dashboard:5173
+}
+
+{$MOBILE_DOMAIN} {
+  reverse_proxy mobile-app:5174
+}
+
+{$API_DOMAIN} {
+  reverse_proxy backend-api:8000
+}
