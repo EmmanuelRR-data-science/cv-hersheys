@@ -2,10 +2,14 @@ services:
   dashboard:
     environment:
       VITE_API_BASE_URL: https://${API_DOMAIN}
+      VITE_ALLOWED_HOSTS: localhost,127.0.0.1,dashboard,${DASHBOARD_DOMAIN}
+    ports: []
 
   mobile-app:
     environment:
       VITE_API_BASE_URL: https://${API_DOMAIN}
+      VITE_ALLOWED_HOSTS: localhost,127.0.0.1,mobile-app,${MOBILE_DOMAIN}
+    ports: []
 
   caddy:
     image: caddy:2-alpine

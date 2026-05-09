@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { config } from '../config'
-import { getAccessToken, uploadImage } from '../services/api'
+import { uploadImage } from '../services/api'
 import { compressImageToJpeg } from '../services/compression'
 import { enqueueImage, listQueuedImages, removeQueuedImage } from '../services/offlineQueue'
 import { retry } from '../services/retry'
@@ -35,12 +35,9 @@ export function useUpload(params: { isOnline: boolean }) {
           maxHeight: 4096,
         })
 
-        const accessToken = await getAccessToken()
-
         const response = await retry(
           async () =>
             await uploadImage({
-              accessToken,
               blob: compressed,
               filename: input.filename,
               onProgress: (progressPct) => setState({ status: 'uploading', progressPct }),
@@ -67,12 +64,10 @@ export function useUpload(params: { isOnline: boolean }) {
       if (items.length === 0) return
       setState({ status: 'uploading', progressPct: 0, message: 'Subiendo pendientes...' })
 
-      const accessToken = await getAccessToken()
       for (const item of items) {
         const response = await retry(
           async () =>
             await uploadImage({
-              accessToken,
               blob: item.blob,
               filename: item.filename,
               onProgress: (progressPct) => setState({ status: 'uploading', progressPct }),

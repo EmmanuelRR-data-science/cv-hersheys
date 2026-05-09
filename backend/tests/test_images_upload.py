@@ -83,6 +83,50 @@ def test_upload_image_creates_db_record_and_returns_201(tmp_path) -> None:
     asyncio.run(assert_db())
 
 
+def test_upload_image_without_token_uses_demo_mobile_user(tmp_path) -> None:
+    db_path = Path(tmp_path) / "images-demo.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def init() -> None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    asyncio.run(init())
+
+    app = create_app()
+
+    async def override_db():
+        async with sessionmaker() as session:
+            yield session
+
+    app.dependency_overrides[get_db_session] = override_db
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        database_url="sqlite://",
+        redis_url="redis://",
+        minio_endpoint="http://minio",
+        minio_access_key="minioadmin",
+        minio_secret_key="minioadmin",
+        jwt_secret_key=JWT_SECRET,
+    )
+
+    client = TestClient(app)
+    files = {"file": ("photo.jpg", BytesIO(_minimal_jpeg()), "image/jpeg")}
+    response = client.post("/api/v1/images", files=files)
+    assert response.status_code == 201
+
+    async def assert_db() -> None:
+        async with sessionmaker() as session:
+            users = (await session.execute(select(User))).scalars().all()
+            images = (await session.execute(select(Image))).scalars().all()
+            assert len(users) == 1
+            assert users[0].username == "mobile-demo"
+            assert len(images) == 1
+            assert images[0].user_id == users[0].id
+
+    asyncio.run(assert_db())
+
+
 def test_upload_rejects_unsupported_format(tmp_path) -> None:
     db_path = Path(tmp_path) / "images.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")

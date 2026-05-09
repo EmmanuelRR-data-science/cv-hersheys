@@ -91,6 +91,7 @@ El dashboard debe consumir un modelo interno consistente:
 - Mantener datos inventados como fallback cuando el JSON externo llegue incompleto o invalido. **Closed**
 - Tolerar variaciones y typos de proveedor (`conteo_gastillo`, `porcetaje_*`) en la normalizacion. **Closed**
 - Mantener render de fallback en dashboard si `sales` no cumple contrato minimo. **Closed**
+- Habilitar modo demo en mobile para subir imagenes sin login explicito, conservando autenticacion en dashboard/resultados. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 

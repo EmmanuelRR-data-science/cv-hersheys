@@ -5,7 +5,6 @@ import { useUpload } from './useUpload'
 
 vi.mock('../services/api', () => {
   return {
-    getAccessToken: vi.fn(async () => 'token'),
     uploadImage: vi.fn(async () => ({
       id: 'img-1',
       status: 'pending',

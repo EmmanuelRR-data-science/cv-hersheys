@@ -19,5 +19,13 @@ def get_bearer_token(authorization: str | None = Header(default=None)) -> str:
     return authorization.split(" ", 1)[1]
 
 
+def get_optional_bearer_token(authorization: str | None = Header(default=None)) -> str | None:
+    if authorization is None:
+        return None
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="invalid authorization header")
+    return authorization.split(" ", 1)[1]
+
+
 def get_settings_dep() -> Settings:
     return get_settings()

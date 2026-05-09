@@ -13,6 +13,7 @@ npm run test:run
 
 ## Funcionalidad principal
 
+- Modo demo sin login para subida de imagenes.
 - Captura de imagen desde camara.
 - Compresion previa a carga.
 - Subida con progreso.

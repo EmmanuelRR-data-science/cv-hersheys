@@ -5,11 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_bearer_token, get_db_session, get_settings_dep
+from app.api.dependencies import (
+    get_bearer_token,
+    get_db_session,
+    get_optional_bearer_token,
+    get_settings_dep,
+)
 from app.core.config import Settings
+from app.core.security import hash_password
 from app.models.image import Image
+from app.models.user import User
 from app.security.current_user import get_current_user
 from app.services.queue import enqueue_process_image
 from app.services.storage import ensure_bucket, get_bytes, put_bytes
@@ -21,6 +29,7 @@ from app.services.validation import (
 )
 
 router = APIRouter(prefix="/api/v1/images", tags=["images"])
+DEMO_MOBILE_USERNAME = "mobile-demo"
 
 
 class ImageItem(BaseModel):
@@ -44,19 +53,46 @@ class ImageUploadResponse(BaseModel):
     created_at: str
 
 
+async def _get_or_create_demo_mobile_user(session: AsyncSession) -> User:
+    user = (await session.execute(select(User).where(User.username == DEMO_MOBILE_USERNAME))).scalar_one_or_none()
+    if user is not None:
+        return user
+
+    demo_user = User(
+        username=DEMO_MOBILE_USERNAME,
+        password_hash=hash_password("demo-mobile-user"),
+        role="operator",
+        is_active=True,
+    )
+    session.add(demo_user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        existing = (await session.execute(select(User).where(User.username == DEMO_MOBILE_USERNAME))).scalar_one_or_none()
+        if existing is None:
+            raise
+        return existing
+    await session.refresh(demo_user)
+    return demo_user
+
+
 @router.post("", status_code=201, response_model=ImageUploadResponse)
 async def upload_image(
     file: UploadFile,
-    token: str = Depends(get_bearer_token),
+    token: str | None = Depends(get_optional_bearer_token),
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageUploadResponse:
-    user = await get_current_user(
-        token=token,
-        session=session,
-        jwt_secret_key=settings.jwt_secret_key,
-        jwt_algorithm=settings.jwt_algorithm,
-    )
+    if token:
+        user = await get_current_user(
+            token=token,
+            session=session,
+            jwt_secret_key=settings.jwt_secret_key,
+            jwt_algorithm=settings.jwt_algorithm,
+        )
+    else:
+        user = await _get_or_create_demo_mobile_user(session)
 
     data = await file.read()
     try:
