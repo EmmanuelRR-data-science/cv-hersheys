@@ -1,8 +1,57 @@
+from typing import Any
+
 import httpx
 
 
 class OcrExternalError(Exception):
     pass
+
+
+def fetch_image_info(
+    *,
+    base_url: str,
+    image_bytes: bytes,
+    filename: str,
+    content_type: str,
+    timeout_seconds: float = 30.0,
+) -> dict[str, Any]:
+    """POST `image_file` to the external OCR `/get_image_info` endpoint.
+
+    Returns the parsed JSON response. Raises `OcrExternalError` on any
+    transport, HTTP or content-type problem so callers can map it to a
+    consistent gateway error.
+    """
+
+    url = f"{base_url.rstrip('/')}/get_image_info"
+    files = {
+        "image_file": (filename, image_bytes, content_type or "image/jpeg"),
+    }
+    try:
+        with httpx.Client(timeout=timeout_seconds) as client:
+            response = client.post(url, files=files)
+    except httpx.HTTPError as exc:
+        raise OcrExternalError(f"ocr get_image_info transport error: {exc}") from exc
+
+    if response.status_code != 200:
+        raise OcrExternalError(
+            f"ocr get_image_info returned status {response.status_code}: "
+            f"{response.text[:200]}"
+        )
+
+    response_type = response.headers.get("content-type", "")
+    if "json" not in response_type.lower():
+        raise OcrExternalError(
+            f"ocr get_image_info returned unexpected content-type: {response_type}"
+        )
+
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise OcrExternalError(f"ocr get_image_info returned invalid json: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise OcrExternalError("ocr get_image_info returned non-object payload")
+    return payload
 
 
 def fetch_annotated_image(

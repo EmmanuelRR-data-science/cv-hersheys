@@ -33,10 +33,16 @@ def _error_code_for_status(status_code: int) -> str:
         return "NOT_FOUND"
     if status_code == 413:
         return "PAYLOAD_TOO_LARGE"
+    if status_code == 422:
+        return "UNPROCESSABLE_ENTITY"
     if status_code == 423:
         return "LOCKED"
     if status_code == 429:
         return "RATE_LIMITED"
+    if status_code == 502:
+        return "BAD_GATEWAY"
+    if status_code == 503:
+        return "SERVICE_UNAVAILABLE"
     return "HTTP_ERROR"
 
 

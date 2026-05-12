@@ -12,6 +12,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
 from app.api.routes.images import router as images_router
 from app.api.routes.me import router as me_router
+from app.api.routes.ocr import router as ocr_router
 from app.api.routes.results import router as results_router
 from app.core.errors import (
     error_response,
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(images_router)
     app.include_router(me_router)
+    app.include_router(ocr_router)
     app.include_router(results_router)
     return app
 

@@ -113,17 +113,13 @@ export async function getImageInfo(params: {
     new File([params.blob], params.filename, { type: params.contentType || 'image/jpeg' }),
   )
 
-  const query = new URLSearchParams({
-    return_labeled: 'false',
-    return_coordinates: 'true',
-  })
-  const response = await fetch(`${config.ocrApiBaseUrl}/get_image_info?${query.toString()}`, {
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/ocr/get_image_info`, {
     method: 'POST',
     body: formData,
   })
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(`get_image_info fallo (${response.status}): ${text || 'sin detalle'}`)
+    throw new Error(`get_image_info failed (${response.status}): ${text || 'no detail'}`)
   }
   return await response.json()
 }

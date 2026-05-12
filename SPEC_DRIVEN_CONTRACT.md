@@ -106,6 +106,8 @@ El dashboard debe consumir un modelo interno consistente:
 - Configurar el cliente OCR del backend con `OCR_API_BASE_URL` (default `http://136.116.56.229:8000/apis/ocr`) y `OCR_API_TIMEOUT_SECONDS` (default 30s). **Closed**
 - Usar `httpx` como cliente HTTP de runtime en el backend para integraciones externas. **Closed**
 - En la pagina de detalle del dashboard, mostrar la imagen original capturada junto a la imagen anotada del `/predict` en un layout pareado. **Closed**
+- Proxy del OCR `get_image_info` a traves del backend (`POST /api/v1/ocr/get_image_info`, multipart `image_file`) para evitar mixed content cuando la mobile-app se sirve por HTTPS. La mobile no debe llamar al OCR externo directamente. **Closed**
+- Eliminar `ocrApiBaseUrl` del cliente mobile; toda integracion OCR pasa por `apiBaseUrl` del backend. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 
