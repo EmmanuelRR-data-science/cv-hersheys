@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -19,9 +20,9 @@ from app.core.security import hash_password
 from app.models.image import Image
 from app.models.user import User
 from app.security.current_user import get_current_user
-from app.services.ocr_external import OcrExternalError, fetch_annotated_image
+from app.services.ocr_external import OcrExternalError, fetch_annotated_image, fetch_image_info
 from app.services.queue import enqueue_process_image
-from app.services.storage import ensure_bucket, get_bytes, put_bytes
+from app.services.storage import ensure_bucket, get_bytes, get_json, put_bytes, put_json
 from app.services.validation import (
     ImageTooLargeError,
     InvalidImageFormatError,
@@ -366,3 +367,100 @@ async def get_image_annotated(
         pass
 
     return Response(content=annotated_bytes, media_type="image/jpeg")
+
+
+def _ocr_info_storage_path(image_storage_path: str) -> str:
+    if "." in image_storage_path:
+        base, _ext = image_storage_path.rsplit(".", 1)
+        return f"{base}_ocr_info.json"
+    return f"{image_storage_path}_ocr_info.json"
+
+
+@router.get("/{image_id}/ocr_info")
+async def get_image_ocr_info(
+    image_id: str,
+    token: str = Depends(get_bearer_token),
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dep),
+) -> dict[str, Any]:
+    """Return the provider `get_image_info` payload for a stored image.
+
+    Mirrors the `/annotated` pattern: cache the upstream JSON in MinIO with
+    suffix `_ocr_info.json` so repeated dashboard visits do not re-hit the
+    OCR. The worker pipeline keeps generating `fictitious_sales` for
+    `processing_results.results`; this endpoint exposes the original
+    provider data on demand for the dashboard's "Vista original" panel.
+    """
+
+    user = await get_current_user(
+        token=token,
+        session=session,
+        jwt_secret_key=settings.jwt_secret_key,
+        jwt_algorithm=settings.jwt_algorithm,
+    )
+    is_privileged = user.role in {"analyst", "admin"}
+    try:
+        parsed_id = uuid.UUID(image_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="not found") from exc
+
+    query = select(Image).where(Image.id == parsed_id)
+    if not is_privileged:
+        query = query.where(Image.user_id == user.id)
+    image = (await session.execute(query)).scalar_one_or_none()
+    if image is None:
+        raise HTTPException(status_code=404, detail="not found")
+
+    cache_path = _ocr_info_storage_path(image.storage_path)
+
+    try:
+        bucket = ensure_bucket()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="storage unavailable") from exc
+
+    try:
+        cached = get_json(bucket=bucket, object_name=cache_path)
+        if cached:
+            return cached
+    except FileNotFoundError:
+        pass
+    except ValueError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        original_bytes = get_bytes(bucket=bucket, object_name=image.storage_path)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="storage unavailable") from exc
+
+    if len(original_bytes) < 1024:
+        raise HTTPException(status_code=422, detail="original image too small for OCR")
+
+    content_type = {
+        "jpeg": "image/jpeg",
+        "jpg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+    }.get(image.format, "image/jpeg")
+
+    try:
+        payload = fetch_image_info(
+            base_url=settings.ocr_api_base_url,
+            image_bytes=original_bytes,
+            filename=image.original_filename or "image.jpg",
+            content_type=content_type,
+            timeout_seconds=settings.ocr_api_timeout_seconds,
+        )
+    except OcrExternalError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"ocr get_image_info unavailable: {exc}",
+        ) from exc
+
+    try:
+        put_json(object_name=cache_path, payload=payload)
+    except Exception:
+        pass
+
+    return payload

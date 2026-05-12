@@ -15,7 +15,11 @@ def fetch_image_info(
     content_type: str,
     timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
-    """POST `image_file` to the external OCR `/get_image_info` endpoint.
+    """POST `image` (multipart binary) to the external OCR `/get_image_info`.
+
+    The provider OpenAPI exposes two alternatives for the body: `image`
+    (binary) and `image_base64` (string). We use the binary variant to
+    avoid the ~33% payload overhead and keep parity with `/predict`.
 
     Returns the parsed JSON response. Raises `OcrExternalError` on any
     transport, HTTP or content-type problem so callers can map it to a
@@ -24,7 +28,7 @@ def fetch_image_info(
 
     url = f"{base_url.rstrip('/')}/get_image_info"
     files = {
-        "image_file": (filename, image_bytes, content_type or "image/jpeg"),
+        "image": (filename, image_bytes, content_type or "image/jpeg"),
     }
     try:
         with httpx.Client(timeout=timeout_seconds) as client:
@@ -64,7 +68,7 @@ def fetch_annotated_image(
 ) -> bytes:
     url = f"{base_url.rstrip('/')}/predict"
     files = {
-        "image_file": (filename, image_bytes, content_type or "image/jpeg"),
+        "image": (filename, image_bytes, content_type or "image/jpeg"),
     }
     try:
         with httpx.Client(timeout=timeout_seconds) as client:

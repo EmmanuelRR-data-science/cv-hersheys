@@ -108,6 +108,15 @@ El dashboard debe consumir un modelo interno consistente:
 - En la pagina de detalle del dashboard, mostrar la imagen original capturada junto a la imagen anotada del `/predict` en un layout pareado. **Closed**
 - Proxy del OCR `get_image_info` a traves del backend (`POST /api/v1/ocr/get_image_info`, multipart `image_file`) para evitar mixed content cuando la mobile-app se sirve por HTTPS. La mobile no debe llamar al OCR externo directamente. **Closed**
 - Eliminar `ocrApiBaseUrl` del cliente mobile; toda integracion OCR pasa por `apiBaseUrl` del backend. **Closed**
+- Enviar al OCR externo el binario via multipart con campo `image` (nuevo nombre del proveedor segun OpenAPI). Descartar `image_base64` por overhead de payload (+33%), mayor uso de memoria, costo en redes moviles y por mantener simetria con `/predict`. **Closed**
+- Mantener `image_file` como nombre del campo en el contrato interno `mobile -> backend` para no romper consumidores actuales del proxy. El rename solo aplica al borde `backend -> OCR externo`. **Closed**
+- Diferir adopcion de `image_base64` hasta que exista un driver concreto (p.ej. cola offline serializable en IndexedDB o integracion JSON-only de terceros). **Closed**
+- Mantener `/predict` (imagen anotada) tambien con multipart `image` para preservar simetria de la capa Infrastructure. **Closed**
+- Exponer endpoint backend `GET /api/v1/images/{id}/ocr_info` que llama al `POST /get_image_info` del OCR externo, cachea el payload JSON en MinIO con sufijo `_ocr_info.json` y lo sirve como `application/json`. Espeja el patron `/annotated`. **Closed**
+- En la pagina de detalle del dashboard reemplazar el `pre` JSON crudo por dos tablas: izquierda `Vista Hershey's` (KPIs + series30d + topStores en secciones colapsables `details`) y derecha `Vista original (proveedor)` (datos crudos de `get_image_info`). **Closed**
+- El JSON original del proveedor (salsas) NO se persiste en `processing_results.results`; se obtiene via `/api/v1/images/{id}/ocr_info` bajo demanda. El worker sigue generando `fictitious_sales` para `result.results.sales`. **Closed**
+- Layout del par de tablas: grid de 2 columnas en desktop, apilado en mobile (`@media (max-width: 960px)`). Cada tabla con scroll interno si excede altura. **Closed**
+- Si `/ocr_info` falla (502 upstream, 503 storage, 404 imagen), el dashboard muestra mensaje de error en el panel derecho sin romper el resto de la pagina. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 

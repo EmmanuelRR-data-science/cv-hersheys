@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { HersheysSummaryTable } from '../components/ResultPanels/HersheysSummaryTable'
+import { OriginalOcrTable } from '../components/ResultPanels/OriginalOcrTable'
 import { getToken } from '../auth/token'
 import {
   getAnnotatedImageFile,
   getImage,
   getImageFile,
+  getImageOcrInfo,
   getResult,
   type ImageItem,
+  type OcrInfoPayload,
   type OcrInsights,
   type ResultItem,
 } from '../services/api'
@@ -58,6 +62,11 @@ export function ResultDetailPage() {
     'idle',
   )
   const [annotatedError, setAnnotatedError] = useState<string | null>(null)
+  const [ocrInfo, setOcrInfo] = useState<OcrInfoPayload | null>(null)
+  const [ocrInfoStatus, setOcrInfoStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    'idle',
+  )
+  const [ocrInfoError, setOcrInfoError] = useState<string | null>(null)
   const salesData = useMemo(() => {
     const sales = result?.results?.sales
     return isSalesData(sales) ? sales : null
@@ -121,6 +130,21 @@ export function ResultDetailPage() {
       }
     }
 
+    const loadOcrInfo = async (imageId: string) => {
+      setOcrInfoStatus('loading')
+      try {
+        const payload = await getImageOcrInfo({ token, imageId })
+        if (cancelled) return
+        setOcrInfo(payload)
+        setOcrInfoStatus('ready')
+      } catch (err) {
+        if (cancelled) return
+        const detail = err instanceof Error ? err.message : 'unknown error'
+        setOcrInfoStatus('error')
+        setOcrInfoError(`Provider OCR data unavailable (${detail}).`)
+      }
+    }
+
     const loadMetadata = async (imageId: string) => {
       try {
         const img = await getImage({ token, imageId })
@@ -138,6 +162,9 @@ export function ResultDetailPage() {
       setAnnotatedStatus('idle')
       setAnnotatedError(null)
       setAnnotatedUrl(null)
+      setOcrInfo(null)
+      setOcrInfoStatus('idle')
+      setOcrInfoError(null)
       try {
         const r = await getResult({ token, resultId })
         if (cancelled) return
@@ -148,6 +175,7 @@ export function ResultDetailPage() {
           loadOriginal(r.image_id),
           loadMetadata(r.image_id),
           loadAnnotated(r.image_id),
+          loadOcrInfo(r.image_id),
         ])
       } catch {
         if (cancelled) return
@@ -368,9 +396,25 @@ export function ResultDetailPage() {
               </section>
             ) : null}
 
-            <pre className="mono" style={{ whiteSpace: 'pre-wrap', marginTop: 12 }}>
-              {JSON.stringify(result.results ?? {}, null, 2)}
-            </pre>
+            <section className="kv-pair" aria-label="JSON breakdown">
+              <h2 className="panel-title">JSON breakdown</h2>
+              <p className="kv-pair-subtitle">
+                Left: Hershey&apos;s view, sourced from `processing_results.results`. Right:
+                untouched provider payload from the OCR&apos;s `get_image_info`, fetched
+                on demand via `/api/v1/images/{'{id}'}/ocr_info`.
+              </p>
+              <div className="kv-pair-grid">
+                <HersheysSummaryTable
+                  salesData={salesData}
+                  resultsPayload={result.results ?? null}
+                />
+                <OriginalOcrTable
+                  status={ocrInfoStatus}
+                  payload={ocrInfo}
+                  errorMessage={ocrInfoError}
+                />
+              </div>
+            </section>
           </div>
         ) : null}
       </main>

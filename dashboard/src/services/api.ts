@@ -2,6 +2,7 @@ import { config } from '../config'
 import { adaptResult, adaptResultList } from './resultAdapter'
 import type {
   ImageItem,
+  OcrInfoPayload,
   OcrInsights,
   ProcessedResultPayload,
   ResultItem,
@@ -23,6 +24,7 @@ export type TokenResponse = {
 
 export type {
   ImageItem,
+  OcrInfoPayload,
   OcrInsights,
   ProcessedResultPayload,
   ResultItem,
@@ -116,4 +118,24 @@ export async function getAnnotatedImageFile(params: {
     throw new Error(`annotated image failed: ${response.status}`)
   }
   return await response.blob()
+}
+
+export async function getImageOcrInfo(params: {
+  token: string
+  imageId: string
+}): Promise<OcrInfoPayload> {
+  const response = await fetch(
+    `${config.apiBaseUrl}/api/v1/images/${params.imageId}/ocr_info`,
+    {
+      headers: { Authorization: `Bearer ${params.token}` },
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`ocr info failed: ${response.status}`)
+  }
+  const data = (await response.json()) as unknown
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('ocr info: invalid payload shape')
+  }
+  return data as OcrInfoPayload
 }

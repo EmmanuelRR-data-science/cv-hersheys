@@ -1,12 +1,12 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
 import { setToken } from '../auth/token'
 import { ResultDetailPage } from './ResultDetailPage'
 
-const { getResultMock } = vi.hoisted(() => {
-  return { getResultMock: vi.fn() }
+const { getResultMock, getOcrInfoMock } = vi.hoisted(() => {
+  return { getResultMock: vi.fn(), getOcrInfoMock: vi.fn() }
 })
 
 vi.mock('../services/api', () => {
@@ -21,6 +21,8 @@ vi.mock('../services/api', () => {
       created_at: new Date().toISOString(),
     })),
     getImageFile: vi.fn(async () => new Blob(['x'], { type: 'image/jpeg' })),
+    getAnnotatedImageFile: vi.fn(async () => new Blob(['y'], { type: 'image/jpeg' })),
+    getImageOcrInfo: getOcrInfoMock,
   }
 })
 
@@ -28,6 +30,7 @@ describe('ResultDetailPage', () => {
   afterEach(() => {
     cleanup()
     getResultMock.mockReset()
+    getOcrInfoMock.mockReset()
     localStorage.clear()
   })
 
@@ -91,13 +94,101 @@ describe('ResultDetailPage', () => {
 
     expect(screen.getByText(/r1/)).toBeInTheDocument()
     expect(screen.getByText('processed', { selector: '.pill' })).toBeInTheDocument()
-    expect(screen.getByText(/placeholder/i)).toBeInTheDocument()
     const salesPanel = screen.getByLabelText('Sales data')
     expect(salesPanel).toHaveTextContent('Kisses Milk Chocolate')
     expect(salesPanel).toHaveTextContent('Walmart Universidad')
     const ocrPanel = screen.getByLabelText('OCR metrics')
     expect(ocrPanel).toHaveTextContent('Detected products')
     expect(ocrPanel).toHaveTextContent('Hershey Kisses')
+
+    expect(screen.getByText(/JSON breakdown/i)).toBeInTheDocument()
+    const hersheysView = screen.getByLabelText("Hershey's view")
+    expect(hersheysView).toHaveTextContent('Kisses Milk Chocolate')
+    expect(hersheysView).toHaveTextContent('HSY-KISSES-146G')
+    expect(hersheysView).toHaveTextContent('30-day series')
+    expect(hersheysView).toHaveTextContent('Top stores')
+  })
+
+  test('renders provider OCR table when ocr_info resolves', async () => {
+    getResultMock.mockResolvedValueOnce({
+      id: 'r2',
+      image_id: 'i2',
+      status: 'processed',
+      results: {
+        placeholder: true,
+        sales: {
+          product: {
+            brand: "Hershey's",
+            productName: 'Kisses Milk Chocolate',
+            sku: 'HSY-KISSES-146G',
+            category: 'Chocolate',
+          },
+          pricing: { suggestedPrice: 59.9, currency: 'MXN' },
+          kpis: { unitsSold: 1240, estimatedRevenue: 74276, estimatedMarginPct: 31.5 },
+          context: { channel: 'Autoservicio', region: 'Centro', storeCount: 28 },
+          trend: { weeklyTrendPct: 4.2 },
+          series30d: [],
+          topStores: [],
+        },
+      },
+      processed_at: null,
+    })
+
+    getOcrInfoMock.mockResolvedValueOnce({
+      status_message: 'Imagen procesada correctamente.',
+      filename: 'shelf.jpg',
+      total_productos: 18,
+      conteo_general: { '7 Mares Huichol': 5, 'Habanera Roja La Guacamaya': 3 },
+      conteo_gastillo: 4,
+      conteo_competencia_directa: 8,
+      conteo_competencia_indirecta: 6,
+      porcentaje_anaquel_castillo: 22.22,
+      porcetaje_anaquel_indirecta: 33.34,
+      precios: { 'Habanera Roja La Guacamaya': { precio: '14.99', oferta: 'si' } },
+    })
+
+    setToken('token-1')
+    render(
+      <MemoryRouter initialEntries={['/results/r2']}>
+        <Routes>
+          <Route path="/results/:resultId" element={<ResultDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const originalView = await screen.findByLabelText('Original provider view')
+    await waitFor(() => expect(originalView).toHaveTextContent('Imagen procesada correctamente.'))
+    expect(originalView).toHaveTextContent('shelf.jpg')
+    expect(originalView).toHaveTextContent('conteo_general')
+    expect(originalView).toHaveTextContent('Habanera Roja La Guacamaya')
+    expect(originalView).toHaveTextContent('22.22%')
+    expect(originalView).toHaveTextContent('33.34%')
+  })
+
+  test('shows graceful error in original panel when ocr_info fails', async () => {
+    getResultMock.mockResolvedValueOnce({
+      id: 'r3',
+      image_id: 'i3',
+      status: 'processed',
+      results: { placeholder: true },
+      processed_at: null,
+    })
+    getOcrInfoMock.mockRejectedValueOnce(new Error('ocr info failed: 502'))
+
+    setToken('token-1')
+    render(
+      <MemoryRouter initialEntries={['/results/r3']}>
+        <Routes>
+          <Route path="/results/:resultId" element={<ResultDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const originalView = await screen.findByLabelText('Original provider view')
+    await waitFor(() =>
+      expect(originalView).toHaveTextContent(/Provider OCR data unavailable/i),
+    )
+    expect(originalView).toHaveTextContent('ocr info failed: 502')
   })
 
   test('renders fallback when sales data is missing', async () => {
