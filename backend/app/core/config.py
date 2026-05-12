@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_exp_minutes: int = 60 * 24
 
+    ocr_api_base_url: str = "http://136.116.56.229:8000/apis/ocr"
+    ocr_api_timeout_seconds: float = 30.0
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

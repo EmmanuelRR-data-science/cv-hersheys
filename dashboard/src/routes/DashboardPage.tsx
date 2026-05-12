@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { clearToken, getToken } from '../auth/token'
@@ -7,7 +7,18 @@ import { SearchBar } from '../components/Search/SearchBar'
 import { isWithinLocalDateRange, matchesStatus } from '../features/filters'
 import { matchesQuery } from '../features/search'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
-import { listResults, type ResultItem } from '../services/api'
+import { getImageFile, listResults, type ResultItem } from '../services/api'
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return 'N/A'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'America/Mexico_City',
+  }).format(date)
+}
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -16,10 +27,13 @@ export function DashboardPage() {
   const token = useMemo(() => getToken(), [])
   const [items, setItems] = useState<ResultItem[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
+  const [brokenPreviewIds, setBrokenPreviewIds] = useState<Record<string, true>>({})
   const [baselineReady, setBaselineReady] = useState(false)
   const [lastSeenTotal, setLastSeenTotal] = useState(0)
   const [lastSeenLatestId, setLastSeenLatestId] = useState<string | null>(null)
   const [hasNewResults, setHasNewResults] = useState(false)
+  const previewUrlsRef = useRef<Record<string, string>>({})
   const query = searchParams.get('q') ?? ''
   const statusFilter = searchParams.get('status') ?? 'all'
   const from = searchParams.get('from') ?? ''
@@ -35,6 +49,63 @@ export function DashboardPage() {
       ),
     [debouncedQuery, from, items, statusFilter, to],
   )
+
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(previewUrlsRef.current)) {
+        URL.revokeObjectURL(url)
+      }
+      previewUrlsRef.current = {}
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!token || items.length === 0) {
+      for (const url of Object.values(previewUrlsRef.current)) {
+        URL.revokeObjectURL(url)
+      }
+      previewUrlsRef.current = {}
+      return
+    }
+
+    let cancelled = false
+    const loadPreviews = async () => {
+      const next: Record<string, string> = {}
+      for (const item of items) {
+        if (cancelled) return
+        try {
+          const blob = await getImageFile({ token, imageId: item.image_id })
+          if (cancelled) return
+          if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') continue
+          if (blob.size < 100) {
+            continue
+          }
+          next[item.id] = URL.createObjectURL(blob)
+        } catch {
+          continue
+        }
+      }
+      if (cancelled) {
+        for (const url of Object.values(next)) {
+          URL.revokeObjectURL(url)
+        }
+        return
+      }
+
+      for (const url of Object.values(previewUrlsRef.current)) {
+        if (!Object.values(next).includes(url)) {
+          URL.revokeObjectURL(url)
+        }
+      }
+      previewUrlsRef.current = next
+      setPreviewUrls(next)
+    }
+
+    void loadPreviews()
+    return () => {
+      cancelled = true
+    }
+  }, [items, token])
 
   useEffect(() => {
     if (!token) {
@@ -152,23 +223,23 @@ export function DashboardPage() {
         <div className="dash-title">
           <img className="hersheys-logo-header" src="/hersheys-logo.svg" alt="Logo Hershey's" />
           <span>Hershey's CV Dashboard</span>
-          {hasNewResults ? <span className="notif-dot" aria-label="Nuevos resultados disponibles" /> : null}
+          {hasNewResults ? <span className="notif-dot" aria-label="New results available" /> : null}
         </div>
         <div className="dash-actions">
           {hasNewResults ? (
             <button type="button" className="btn btn-secondary" onClick={() => void refresh()}>
-              Actualizar
+              Refresh
             </button>
           ) : null}
           <button type="button" className="btn btn-secondary" onClick={logout}>
-            Salir
+            Sign out
           </button>
         </div>
       </header>
 
       <main className="dash-main">
         <section className="panel">
-          <div className="panel-title">Resultados recientes</div>
+          <div className="panel-title">Recent results</div>
           <SearchBar query={query} onQueryChange={(v) => setParam('q', v)} />
           <FiltersBar
             status={statusFilter}
@@ -187,15 +258,16 @@ export function DashboardPage() {
             </div>
           ) : null}
 
-          {status === 'error' ? <div className="error">No se pudieron cargar resultados.</div> : null}
+          {status === 'error' ? <div className="error">Could not load results.</div> : null}
 
           {status === 'ready' ? (
             items.length ? (
               <div className="table">
                 <div className="table-head">
                   <div>ID</div>
-                  <div>Image</div>
-                  <div>Status</div>
+                  <div>Image ID</div>
+                  <div>Preview</div>
+                  <div>Status / Uploaded at</div>
                 </div>
                 {filteredItems.length ? (
                   filteredItems.map((r) => (
@@ -204,15 +276,30 @@ export function DashboardPage() {
                         {r.id}
                       </Link>
                       <div className="mono">{r.image_id}</div>
-                      <div className="pill">{r.status}</div>
+                      <div>
+                        {previewUrls[r.id] && !brokenPreviewIds[r.id] ? (
+                          <img
+                            className="thumb-preview"
+                            src={previewUrls[r.id]}
+                            alt={`Preview ${r.image_id}`}
+                            onError={() => setBrokenPreviewIds((prev) => ({ ...prev, [r.id]: true }))}
+                          />
+                        ) : (
+                          <div className="thumb-placeholder">No preview</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="pill">{r.status}</div>
+                        <div className="mono">{formatDateTime(r.uploaded_at ?? r.processed_at)}</div>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="empty">No hay resultados para esa búsqueda.</div>
+                  <div className="empty">No results found for this search.</div>
                 )}
               </div>
             ) : (
-              <div className="empty">No hay resultados.</div>
+              <div className="empty">No results.</div>
             )
           ) : null}
         </section>

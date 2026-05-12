@@ -1,4 +1,11 @@
-import type { ProcessedResultPayload, ResultItem, ResultListResponse, ResultSalesData, SalesTopStore } from './resultTypes'
+import type {
+  OcrInsights,
+  ProcessedResultPayload,
+  ResultItem,
+  ResultListResponse,
+  ResultSalesData,
+  SalesTopStore,
+} from './resultTypes'
 
 const DEFAULT_PRICE = 59.9
 const DEFAULT_CURRENCY = 'MXN'
@@ -25,6 +32,10 @@ function toStringSafe(value: unknown): string | null {
 
 function round(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 function hashSeed(seed: string): number {
@@ -121,6 +132,74 @@ function getSuggestedPrice(raw: Record<string, unknown>): number {
   return DEFAULT_PRICE
 }
 
+function getDetectionCount(detections: unknown): number {
+  if (!isRecord(detections) || !Array.isArray(detections.xyxy)) {
+    return 0
+  }
+  return detections.xyxy.filter((entry) => Array.isArray(entry) && entry.length === 4).length
+}
+
+function pickTopDetectedLabel(conteoGeneral: unknown): string | null {
+  if (!isRecord(conteoGeneral)) return null
+  const sorted = Object.entries(conteoGeneral)
+    .map(([label, value]) => ({ label, count: toNumber(value) ?? 0 }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count)
+  const winner = sorted[0]?.label ?? null
+  return winner ? winner.split('|')[0]?.trim() ?? winner : null
+}
+
+function buildOcrInsights(raw: Record<string, unknown>): OcrInsights {
+  const detectedBoxes = getDetectionCount(raw.detections)
+  const totalFromResponse = Math.max(0, Math.round(toNumber(raw.total_productos) ?? 0))
+  const totalProducts = Math.max(1, totalFromResponse, detectedBoxes)
+  const hersheysCount = Math.max(0, Math.round(toNumber(raw.conteo_gastillo) ?? 0))
+  const directCompetitionCount = Math.max(0, Math.round(toNumber(raw.conteo_competencia_directa) ?? 0))
+  const indirectCompetitionCount = Math.max(0, Math.round(toNumber(raw.conteo_competencia_indirecta) ?? 0))
+
+  const countDenominator = Math.max(
+    1,
+    hersheysCount + directCompetitionCount + indirectCompetitionCount,
+    totalProducts,
+  )
+
+  const hersheysSharePct = clamp(
+    round(toNumber(raw.porcentaje_anaquel_castillo) ?? (hersheysCount / countDenominator) * 100),
+    0,
+    100,
+  )
+  const directSharePct = clamp(
+    round(toNumber(raw.porcentaje_anaquel_directa) ?? (directCompetitionCount / countDenominator) * 100),
+    0,
+    100,
+  )
+  const indirectSharePct = clamp(
+    round(
+      toNumber(raw.porcetaje_anaquel_indirecta) ??
+        toNumber(raw.porcentaje_anaquel_indirecta) ??
+        (indirectCompetitionCount / countDenominator) * 100,
+    ),
+    0,
+    100,
+  )
+
+  const timing = isRecord(raw.timing) ? raw.timing : null
+  const processingSeconds = timing ? toNumber(timing.total) : null
+
+  return {
+    totalProducts,
+    detectedBoxes,
+    hersheysCount,
+    directCompetitionCount,
+    indirectCompetitionCount,
+    hersheysSharePct,
+    directSharePct,
+    indirectSharePct,
+    processingSeconds,
+    topDetectedLabel: pickTopDetectedLabel(raw.conteo_general),
+  }
+}
+
 function isLikelyExternalPayload(raw: Record<string, unknown>): boolean {
   return [
     'status_message',
@@ -171,20 +250,39 @@ export function isSalesData(value: unknown): value is ResultSalesData {
   )
 }
 
-function buildSalesFromExternal(raw: Record<string, unknown>, seedText: string): ResultSalesData {
+function buildSalesFromExternal(raw: Record<string, unknown>, seedText: string, ocr: OcrInsights): ResultSalesData {
   const seed = hashSeed(seedText)
   const suggestedPrice = getSuggestedPrice(raw)
-  const totalProductos = Math.max(1, Math.round(toNumber(raw.total_productos) ?? 18))
-  const unitsSold = totalProductos * 70 + (seed % 25)
+  const unitsSold =
+    ocr.totalProducts * 55 +
+    ocr.hersheysCount * 30 +
+    ocr.detectedBoxes * 8 +
+    Math.round(ocr.hersheysSharePct * 4) +
+    (seed % 25)
   const estimatedRevenue = round(unitsSold * suggestedPrice)
-  const percentageCastillo = toNumber(raw.porcentaje_anaquel_castillo)
   const topStores = getTopStores(raw.conteo_general, suggestedPrice)
-  const detectedStoreCount = Math.max(3, topStores.length + Math.round(toNumber(raw.conteo_competencia_directa) ?? 0))
+  const detectedStoreCount = Math.max(
+    3,
+    topStores.length + ocr.directCompetitionCount + ocr.indirectCompetitionCount,
+  )
+  const estimatedMarginPct = clamp(
+    round(DEFAULT_MARGIN + (ocr.hersheysSharePct - 35) * 0.08 - ocr.indirectCompetitionCount * 0.35),
+    18,
+    62,
+  )
+  const weeklyTrendPct = clamp(
+    round(
+      (ocr.hersheysSharePct - ocr.directSharePct) * 0.18 +
+        (ocr.processingSeconds !== null ? Math.max(-3, 6 - ocr.processingSeconds) : DEFAULT_WEEKLY_TREND),
+    ),
+    -15,
+    20,
+  )
 
   return {
     product: {
       brand: 'Hershey\'s',
-      productName: pickProductName(raw),
+      productName: ocr.topDetectedLabel ?? pickProductName(raw),
       sku: buildSku(seedText, seed),
       category: 'Chocolate',
     },
@@ -195,7 +293,7 @@ function buildSalesFromExternal(raw: Record<string, unknown>, seedText: string):
     kpis: {
       unitsSold,
       estimatedRevenue,
-      estimatedMarginPct: DEFAULT_MARGIN,
+      estimatedMarginPct,
     },
     context: {
       channel: 'Autoservicio',
@@ -203,7 +301,7 @@ function buildSalesFromExternal(raw: Record<string, unknown>, seedText: string):
       storeCount: detectedStoreCount,
     },
     trend: {
-      weeklyTrendPct: round(percentageCastillo ?? DEFAULT_WEEKLY_TREND),
+      weeklyTrendPct,
     },
     series30d: buildSeries30d(seed, unitsSold, suggestedPrice),
     topStores,
@@ -216,14 +314,19 @@ function adaptProcessedResultPayload(raw: unknown, seedText: string): ProcessedR
 
   const currentSales = raw.sales
   if (isSalesData(currentSales)) {
+    if (isLikelyExternalPayload(raw)) {
+      return { ...raw, sales: currentSales, ocrInsights: buildOcrInsights(raw) }
+    }
     return { ...raw, sales: currentSales }
   }
 
   if (isLikelyExternalPayload(raw)) {
+    const ocrInsights = buildOcrInsights(raw)
     return {
       ...raw,
       placeholder: typeof raw.placeholder === 'boolean' ? raw.placeholder : true,
-      sales: buildSalesFromExternal(raw, seedText),
+      sales: buildSalesFromExternal(raw, seedText, ocrInsights),
+      ocrInsights,
     }
   }
 
@@ -245,6 +348,7 @@ function adaptResultItem(raw: unknown, fallbackId: string): ResultItem {
   const imageId = toStringSafe(raw.image_id) ?? toStringSafe(raw.filename) ?? `image-${fallbackId}`
   const status = toStringSafe(raw.status) ?? 'processed'
   const processedAt = toStringSafe(raw.processed_at)
+  const uploadedAt = toStringSafe(raw.uploaded_at)
 
   return {
     id,
@@ -252,6 +356,7 @@ function adaptResultItem(raw: unknown, fallbackId: string): ResultItem {
     status,
     results: adaptProcessedResultPayload(raw.results, imageId),
     processed_at: processedAt,
+    uploaded_at: uploadedAt,
   }
 }
 

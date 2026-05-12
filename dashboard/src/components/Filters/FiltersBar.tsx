@@ -11,14 +11,14 @@ export function FiltersBar(props: Props) {
   return (
     <div className="filtersbar">
       <label className="filters-label">
-        Estado
+        Status
         <select
           className="filters-input"
-          aria-label="Estado"
+          aria-label="Status"
           value={props.status}
           onChange={(e) => props.onStatusChange(e.target.value)}
         >
-          <option value="all">Todos</option>
+          <option value="all">All</option>
           <option value="pending">pending</option>
           <option value="processing">processing</option>
           <option value="processed">processed</option>
@@ -27,10 +27,10 @@ export function FiltersBar(props: Props) {
       </label>
 
       <label className="filters-label">
-        Desde
+        From
         <input
           className="filters-input"
-          aria-label="Desde"
+          aria-label="From"
           type="date"
           value={props.from}
           onChange={(e) => props.onFromChange(e.target.value)}
@@ -38,10 +38,10 @@ export function FiltersBar(props: Props) {
       </label>
 
       <label className="filters-label">
-        Hasta
+        To
         <input
           className="filters-input"
-          aria-label="Hasta"
+          aria-label="To"
           type="date"
           value={props.to}
           onChange={(e) => props.onToChange(e.target.value)}

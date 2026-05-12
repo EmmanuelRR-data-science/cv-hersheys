@@ -38,6 +38,18 @@ describe('ResultDetailPage', () => {
       status: 'processed',
       results: {
         placeholder: true,
+        ocrInsights: {
+          totalProducts: 18,
+          detectedBoxes: 9,
+          hersheysCount: 7,
+          directCompetitionCount: 6,
+          indirectCompetitionCount: 5,
+          hersheysSharePct: 38.88,
+          directSharePct: 33.33,
+          indirectSharePct: 27.79,
+          processingSeconds: 9.33,
+          topDetectedLabel: 'Hershey Kisses',
+        },
         sales: {
           product: {
             brand: "Hershey's",
@@ -68,9 +80,9 @@ describe('ResultDetailPage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByText('Detalle')
+    await screen.findByText('Details')
 
-    const back = screen.getByRole('link', { name: /volver/i })
+    const back = screen.getByRole('link', { name: /back/i })
     expect(back.getAttribute('href')).toContain('/?')
     expect(back.getAttribute('href')).toContain('q=abc')
     expect(back.getAttribute('href')).toContain('status=processed')
@@ -78,11 +90,14 @@ describe('ResultDetailPage', () => {
     expect(back.getAttribute('href')).toContain('to=2026-05-07')
 
     expect(screen.getByText(/r1/)).toBeInTheDocument()
-    expect(screen.getByText(/processed/i)).toBeInTheDocument()
+    expect(screen.getByText('processed', { selector: '.pill' })).toBeInTheDocument()
     expect(screen.getByText(/placeholder/i)).toBeInTheDocument()
-    const salesPanel = screen.getByLabelText('Datos de ventas')
+    const salesPanel = screen.getByLabelText('Sales data')
     expect(salesPanel).toHaveTextContent('Kisses Milk Chocolate')
     expect(salesPanel).toHaveTextContent('Walmart Universidad')
+    const ocrPanel = screen.getByLabelText('OCR metrics')
+    expect(ocrPanel).toHaveTextContent('Detected products')
+    expect(ocrPanel).toHaveTextContent('Hershey Kisses')
   })
 
   test('renders fallback when sales data is missing', async () => {
@@ -103,8 +118,8 @@ describe('ResultDetailPage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByText('Detalle')
+    await screen.findByText('Details')
 
-    expect(screen.getByText(/Sin datos de ventas disponibles/i)).toBeInTheDocument()
+    expect(screen.getByText(/No sales data available/i)).toBeInTheDocument()
   })
 })

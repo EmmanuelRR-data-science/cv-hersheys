@@ -1,6 +1,15 @@
 import { config } from '../config'
 import { adaptResult, adaptResultList } from './resultAdapter'
-import type { ImageItem, ProcessedResultPayload, ResultItem, ResultListResponse, ResultSalesData, SalesSeriesPoint, SalesTopStore } from './resultTypes'
+import type {
+  ImageItem,
+  OcrInsights,
+  ProcessedResultPayload,
+  ResultItem,
+  ResultListResponse,
+  ResultSalesData,
+  SalesSeriesPoint,
+  SalesTopStore,
+} from './resultTypes'
 
 export type MeResponse = {
   username: string
@@ -12,7 +21,16 @@ export type TokenResponse = {
   token_type: string
 }
 
-export type { ImageItem, ProcessedResultPayload, ResultItem, ResultListResponse, ResultSalesData, SalesSeriesPoint, SalesTopStore }
+export type {
+  ImageItem,
+  OcrInsights,
+  ProcessedResultPayload,
+  ResultItem,
+  ResultListResponse,
+  ResultSalesData,
+  SalesSeriesPoint,
+  SalesTopStore,
+}
 
 export async function getMe(params: { token: string }): Promise<MeResponse> {
   const response = await fetch(`${config.apiBaseUrl}/api/v1/me`, {
@@ -80,6 +98,22 @@ export async function getImageFile(params: { token: string; imageId: string }): 
   })
   if (!response.ok) {
     throw new Error(`image file failed: ${response.status}`)
+  }
+  return await response.blob()
+}
+
+export async function getAnnotatedImageFile(params: {
+  token: string
+  imageId: string
+}): Promise<Blob> {
+  const response = await fetch(
+    `${config.apiBaseUrl}/api/v1/images/${params.imageId}/annotated`,
+    {
+      headers: { Authorization: `Bearer ${params.token}` },
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`annotated image failed: ${response.status}`)
   }
   return await response.blob()
 }

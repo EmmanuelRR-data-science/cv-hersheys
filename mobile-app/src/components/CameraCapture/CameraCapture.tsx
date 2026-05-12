@@ -13,10 +13,12 @@ export function CameraCapture(props: Props) {
   const [ready, setReady] = useState(false)
 
   const canUseCamera = useMemo(() => typeof navigator !== 'undefined' && !!navigator.mediaDevices, [])
+  const unsupportedMessage = canUseCamera
+    ? null
+    : 'This device does not support camera in the browser.'
 
   useEffect(() => {
     if (!canUseCamera) {
-      setError('Este dispositivo no soporta cámara en el navegador.')
       return
     }
 
@@ -38,7 +40,7 @@ export function CameraCapture(props: Props) {
           setReady(true)
         }
       } catch {
-        setError('Permiso de cámara denegado o no disponible.')
+        setError('Camera permission denied or unavailable.')
       }
     }
     start()
@@ -64,7 +66,7 @@ export function CameraCapture(props: Props) {
     canvas.height = height
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      setError('No se pudo capturar la imagen.')
+      setError('Could not capture image.')
       return
     }
     ctx.drawImage(video, 0, 0, width, height)
@@ -78,12 +80,16 @@ export function CameraCapture(props: Props) {
     }).catch(() => null)
 
     if (!blob) {
-      setError('No se pudo generar el archivo de imagen.')
+      setError('Could not generate image file.')
       return
     }
 
     const filename = `capture-${Date.now()}.jpg`
     props.onCaptured({ blob, filename, contentType: 'image/jpeg' })
+  }
+
+  if (unsupportedMessage) {
+    return <div className="camera-error">{unsupportedMessage}</div>
   }
 
   if (error) {
@@ -95,7 +101,7 @@ export function CameraCapture(props: Props) {
       <video ref={videoRef} className="camera-video" playsInline muted />
       <div className="camera-actions">
         <Button onClick={capture} disabled={!ready}>
-          Capturar
+          Capture
         </Button>
       </div>
     </div>

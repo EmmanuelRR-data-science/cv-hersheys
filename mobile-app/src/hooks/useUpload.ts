@@ -23,7 +23,7 @@ export function useUpload(params: { isOnline: boolean }) {
     async (input: { blob: Blob; filename: string; contentType: string }) => {
       if (!canUpload) {
         await enqueueImage(input)
-        setState({ status: 'queued', progressPct: 0, message: 'Guardado para subir cuando haya conexión' })
+        setState({ status: 'queued', progressPct: 0, message: 'Saved to upload when connection is back' })
         return
       }
 
@@ -46,9 +46,9 @@ export function useUpload(params: { isOnline: boolean }) {
         )
 
         setState({ status: 'success', progressPct: 100, message: `Subido: ${response.id}` })
-      } catch (error) {
+      } catch {
         await enqueueImage(input)
-        setState({ status: 'queued', progressPct: 0, message: 'No se pudo subir. Se guardó para reintentar.' })
+        setState({ status: 'queued', progressPct: 0, message: 'Upload failed. Saved for retry.' })
       }
     },
     [canUpload],
@@ -62,7 +62,7 @@ export function useUpload(params: { isOnline: boolean }) {
     try {
       const items = await listQueuedImages()
       if (items.length === 0) return
-      setState({ status: 'uploading', progressPct: 0, message: 'Subiendo pendientes...' })
+      setState({ status: 'uploading', progressPct: 0, message: 'Uploading queued items...' })
 
       for (const item of items) {
         const response = await retry(
@@ -75,7 +75,7 @@ export function useUpload(params: { isOnline: boolean }) {
           { maxRetries: 3, delayMs: 600 },
         )
         await removeQueuedImage(item.id)
-        setState({ status: 'success', progressPct: 100, message: `Pendiente subido: ${response.id}` })
+        setState({ status: 'success', progressPct: 100, message: `Queued upload sent: ${response.id}` })
       }
     } finally {
       isDrainingRef.current = false

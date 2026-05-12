@@ -28,7 +28,7 @@ export function LoginPage() {
       navigate('/')
     } catch {
       setStatus('error')
-      setMessage('Usuario o contraseña inválidos.')
+      setMessage('Invalid username or password.')
     } finally {
       setStatus('idle')
     }
@@ -39,33 +39,33 @@ export function LoginPage() {
       <div className="card">
         <img className="hersheys-logo-login" src="/hersheys-logo.svg" alt="Logo Hershey's" />
         <h1 className="title">Dashboard</h1>
-        <p className="subtitle">Ingresa con usuario y contraseña para iniciar sesión</p>
+        <p className="subtitle">Sign in with your username and password</p>
 
         <label className="label">
-          Usuario
+          Username
           <input
             className="input"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
-            placeholder="usuario"
+            placeholder="username"
           />
         </label>
 
         <label className="label">
-          Contraseña
+          Password
           <input
             className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            placeholder="contraseña"
+            placeholder="password"
           />
         </label>
 
         <button className="btn" type="button" disabled={!canSubmit} onClick={() => void submit()}>
-          Entrar
+          Sign in
         </button>
 
         {message ? <div className="error">{message}</div> : null}

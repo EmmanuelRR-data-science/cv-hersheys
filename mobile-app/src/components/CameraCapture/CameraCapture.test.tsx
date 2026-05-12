@@ -16,7 +16,7 @@ describe('CameraCapture', () => {
     render(<CameraCapture onCaptured={() => undefined} />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Permiso de cámara/i)).toBeInTheDocument()
+      expect(screen.getByText(/Camera permission/i)).toBeInTheDocument()
     })
   })
 })

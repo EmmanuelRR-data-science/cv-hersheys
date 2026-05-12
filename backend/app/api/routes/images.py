@@ -19,6 +19,7 @@ from app.core.security import hash_password
 from app.models.image import Image
 from app.models.user import User
 from app.security.current_user import get_current_user
+from app.services.ocr_external import OcrExternalError, fetch_annotated_image
 from app.services.queue import enqueue_process_image
 from app.services.storage import ensure_bucket, get_bytes, put_bytes
 from app.services.validation import (
@@ -54,7 +55,8 @@ class ImageUploadResponse(BaseModel):
 
 
 async def _get_or_create_demo_mobile_user(session: AsyncSession) -> User:
-    user = (await session.execute(select(User).where(User.username == DEMO_MOBILE_USERNAME))).scalar_one_or_none()
+    demo_query = select(User).where(User.username == DEMO_MOBILE_USERNAME)
+    user = (await session.execute(demo_query)).scalar_one_or_none()
     if user is not None:
         return user
 
@@ -69,7 +71,7 @@ async def _get_or_create_demo_mobile_user(session: AsyncSession) -> User:
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        existing = (await session.execute(select(User).where(User.username == DEMO_MOBILE_USERNAME))).scalar_one_or_none()
+        existing = (await session.execute(demo_query)).scalar_one_or_none()
         if existing is None:
             raise
         return existing
@@ -154,25 +156,37 @@ async def list_images(
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
+    is_privileged = user.role in {"analyst", "admin"}
 
     safe_page = max(page, 1)
     safe_limit = min(max(limit, 1), 100)
     offset = (safe_page - 1) * safe_limit
 
-    total = (
-        await session.execute(
-            select(func.count()).select_from(Image).where(Image.user_id == user.id)
-        )
-    ).scalar_one()
-    rows = (
-        await session.execute(
-            select(Image)
-            .where(Image.user_id == user.id)
-            .order_by(Image.created_at.desc())
-            .offset(offset)
-            .limit(safe_limit)
-        )
-    ).scalars()
+    if is_privileged:
+        total = (await session.execute(select(func.count()).select_from(Image))).scalar_one()
+        rows = (
+            await session.execute(
+                select(Image)
+                .order_by(Image.created_at.desc())
+                .offset(offset)
+                .limit(safe_limit)
+            )
+        ).scalars()
+    else:
+        total = (
+            await session.execute(
+                select(func.count()).select_from(Image).where(Image.user_id == user.id)
+            )
+        ).scalar_one()
+        rows = (
+            await session.execute(
+                select(Image)
+                .where(Image.user_id == user.id)
+                .order_by(Image.created_at.desc())
+                .offset(offset)
+                .limit(safe_limit)
+            )
+        ).scalars()
 
     items = [
         ImageItem(
@@ -204,14 +218,16 @@ async def get_image(
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
+    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    image = (
-        await session.execute(select(Image).where(Image.id == parsed_id, Image.user_id == user.id))
-    ).scalar_one_or_none()
+    query = select(Image).where(Image.id == parsed_id)
+    if not is_privileged:
+        query = query.where(Image.user_id == user.id)
+    image = (await session.execute(query)).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 
@@ -240,14 +256,16 @@ async def get_image_file(
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
+    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    image = (
-        await session.execute(select(Image).where(Image.id == parsed_id, Image.user_id == user.id))
-    ).scalar_one_or_none()
+    query = select(Image).where(Image.id == parsed_id)
+    if not is_privileged:
+        query = query.where(Image.user_id == user.id)
+    image = (await session.execute(query)).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 
@@ -255,6 +273,7 @@ async def get_image_file(
         "jpeg": "image/jpeg",
         "jpg": "image/jpeg",
         "png": "image/png",
+        "webp": "image/webp",
     }.get(image.format, "application/octet-stream")
 
     try:
@@ -264,3 +283,86 @@ async def get_image_file(
         raise HTTPException(status_code=503, detail="storage unavailable") from exc
 
     return Response(content=data, media_type=media_type)
+
+
+def _annotated_storage_path(image_storage_path: str) -> str:
+    if "." in image_storage_path:
+        base, _ext = image_storage_path.rsplit(".", 1)
+        return f"{base}_annotated.jpeg"
+    return f"{image_storage_path}_annotated.jpeg"
+
+
+@router.get("/{image_id}/annotated")
+async def get_image_annotated(
+    image_id: str,
+    token: str = Depends(get_bearer_token),
+    session: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings_dep),
+) -> Response:
+    user = await get_current_user(
+        token=token,
+        session=session,
+        jwt_secret_key=settings.jwt_secret_key,
+        jwt_algorithm=settings.jwt_algorithm,
+    )
+    is_privileged = user.role in {"analyst", "admin"}
+    try:
+        parsed_id = uuid.UUID(image_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="not found") from exc
+
+    query = select(Image).where(Image.id == parsed_id)
+    if not is_privileged:
+        query = query.where(Image.user_id == user.id)
+    image = (await session.execute(query)).scalar_one_or_none()
+    if image is None:
+        raise HTTPException(status_code=404, detail="not found")
+
+    annotated_path = _annotated_storage_path(image.storage_path)
+
+    try:
+        bucket = ensure_bucket()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="storage unavailable") from exc
+
+    try:
+        cached = get_bytes(bucket=bucket, object_name=annotated_path)
+        if cached:
+            return Response(content=cached, media_type="image/jpeg")
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+    try:
+        original_bytes = get_bytes(bucket=bucket, object_name=image.storage_path)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="storage unavailable") from exc
+
+    if len(original_bytes) < 1024:
+        raise HTTPException(status_code=422, detail="original image too small for annotation")
+
+    content_type = {
+        "jpeg": "image/jpeg",
+        "jpg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+    }.get(image.format, "image/jpeg")
+
+    try:
+        annotated_bytes = fetch_annotated_image(
+            base_url=settings.ocr_api_base_url,
+            image_bytes=original_bytes,
+            filename=image.original_filename or "image.jpg",
+            content_type=content_type,
+            timeout_seconds=settings.ocr_api_timeout_seconds,
+        )
+    except OcrExternalError as exc:
+        raise HTTPException(status_code=502, detail=f"ocr predict unavailable: {exc}") from exc
+
+    try:
+        put_bytes(object_name=annotated_path, data=annotated_bytes, content_type="image/jpeg")
+    except Exception:
+        pass
+
+    return Response(content=annotated_bytes, media_type="image/jpeg")

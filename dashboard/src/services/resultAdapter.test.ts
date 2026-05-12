@@ -44,6 +44,9 @@ describe('resultAdapter', () => {
     expect(adapted.results?.sales?.series30d).toHaveLength(30)
     expect(adapted.results?.sales?.topStores.length).toBeGreaterThanOrEqual(3)
     expect(adapted.results?.sales?.pricing.currency).toBe('MXN')
+    expect(adapted.results?.ocrInsights?.totalProducts).toBe(18)
+    expect(adapted.results?.ocrInsights?.detectedBoxes).toBe(1)
+    expect(adapted.results?.ocrInsights?.hersheysSharePct).toBe(22.22)
 
     const series = adapted.results?.sales?.series30d ?? []
     expect(series[0]?.date).toMatch(/^2026-/)
@@ -126,6 +129,7 @@ describe('resultAdapter', () => {
     const topStores = adapted.results?.sales?.topStores ?? []
     expect(topStores).toHaveLength(3)
     expect(topStores[0]?.storeName).toBe('Tienda unica')
+    expect(adapted.results?.ocrInsights?.totalProducts).toBe(5)
   })
 
   test('series30d mantiene diferencia de 29 dias al cruzar mes', () => {

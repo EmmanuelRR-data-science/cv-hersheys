@@ -21,15 +21,15 @@ export function ImagePreview(props: Props) {
       <img className="preview-img" src={url} alt="captured" />
       {!props.detectedHersheys ? (
         <div className="capture-warning">
-          No se detectó un producto Hershey&apos;s. Toma otra foto para poder procesarla.
+          No Hershey&apos;s product detected. Take another photo to continue.
         </div>
       ) : null}
       <div className="preview-actions">
         <Button variant="secondary" onClick={props.onRetake} disabled={props.busy}>
-          Repetir
+          Retake
         </Button>
         <Button onClick={props.onConfirm} disabled={props.busy || !props.detectedHersheys}>
-          Subir
+          Upload
         </Button>
       </div>
     </div>

@@ -433,6 +433,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "celery" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "minio" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -445,7 +446,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "aiosqlite" },
-    { name = "httpx" },
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "ruff" },
@@ -457,6 +457,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.1" },
     { name = "celery", specifier = ">=5.3" },
     { name = "fastapi", specifier = ">=0.109" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "minio", specifier = ">=7.2" },
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "pyjwt", specifier = ">=2.8" },
@@ -469,7 +470,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "aiosqlite", specifier = ">=0.20" },
-    { name = "httpx", specifier = ">=0.27" },
     { name = "hypothesis", specifier = ">=6.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.4" },

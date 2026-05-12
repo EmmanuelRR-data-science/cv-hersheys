@@ -10,8 +10,8 @@ export function SearchBar(props: Props) {
         className="searchbar-input"
         value={props.query}
         onChange={(e) => props.onQueryChange(e.target.value)}
-        placeholder="Buscar por ID, ImageID o Status"
-        aria-label="Buscar"
+        placeholder="Search by ID, Image ID, or status"
+        aria-label="Search"
       />
     </div>
   )

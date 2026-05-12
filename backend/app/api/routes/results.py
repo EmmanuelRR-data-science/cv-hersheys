@@ -20,6 +20,7 @@ class ResultItem(BaseModel):
     status: str
     results: dict | None
     processed_at: str | None
+    uploaded_at: str | None
 
 
 class ResultListResponse(BaseModel):
@@ -54,12 +55,13 @@ async def list_results(
         ).scalar_one()
         rows = (
             await session.execute(
-                select(ProcessingResult)
+                select(ProcessingResult, Image.created_at)
+                .join(Image, Image.id == ProcessingResult.image_id)
                 .order_by(ProcessingResult.created_at.desc())
                 .offset(offset)
                 .limit(safe_limit)
             )
-        ).scalars()
+        ).all()
     else:
         total = (
             await session.execute(
@@ -71,14 +73,14 @@ async def list_results(
         ).scalar_one()
         rows = (
             await session.execute(
-                select(ProcessingResult)
+                select(ProcessingResult, Image.created_at)
                 .join(Image, Image.id == ProcessingResult.image_id)
                 .where(Image.user_id == user.id)
                 .order_by(ProcessingResult.created_at.desc())
                 .offset(offset)
                 .limit(safe_limit)
             )
-        ).scalars()
+        ).all()
 
     items = [
         ResultItem(
@@ -87,8 +89,9 @@ async def list_results(
             status=r.status,
             results=r.results,
             processed_at=r.processed_at.isoformat() if r.processed_at is not None else None,
+            uploaded_at=image_created_at.isoformat() if image_created_at is not None else None,
         )
-        for r in rows
+        for r, image_created_at in rows
     ]
 
     return ResultListResponse(total=int(total), items=items)
@@ -115,25 +118,36 @@ async def get_result(
     is_privileged = user.role in {"analyst", "admin"}
 
     if is_privileged:
-        result = (
+        result_row = (
             await session.execute(select(ProcessingResult).where(ProcessingResult.id == parsed_id))
         ).scalar_one_or_none()
+        image_created_at = None
+        if result_row is not None:
+            created_at_query = select(Image.created_at).where(Image.id == result_row.image_id)
+            image_created_at = (
+                await session.execute(created_at_query)
+            ).scalar_one_or_none()
     else:
-        result = (
+        result_with_image = (
             await session.execute(
-                select(ProcessingResult)
+                select(ProcessingResult, Image.created_at)
                 .join(Image, Image.id == ProcessingResult.image_id)
                 .where(ProcessingResult.id == parsed_id, Image.user_id == user.id)
             )
-        ).scalar_one_or_none()
+        ).one_or_none()
+        result_row = result_with_image[0] if result_with_image is not None else None
+        image_created_at = result_with_image[1] if result_with_image is not None else None
 
-    if result is None:
+    if result_row is None:
         raise HTTPException(status_code=404, detail="not found")
 
     return ResultItem(
-        id=str(result.id),
-        image_id=str(result.image_id),
-        status=result.status,
-        results=result.results,
-        processed_at=result.processed_at.isoformat() if result.processed_at is not None else None,
+        id=str(result_row.id),
+        image_id=str(result_row.image_id),
+        status=result_row.status,
+        results=result_row.results,
+        processed_at=(
+            result_row.processed_at.isoformat() if result_row.processed_at is not None else None
+        ),
+        uploaded_at=image_created_at.isoformat() if image_created_at is not None else None,
     )

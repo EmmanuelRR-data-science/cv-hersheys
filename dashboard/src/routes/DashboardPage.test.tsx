@@ -5,19 +5,21 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { setToken } from '../auth/token'
 import { DashboardPage } from './DashboardPage'
 
-const { listResultsMock } = vi.hoisted(() => {
-  return { listResultsMock: vi.fn() }
+const { listResultsMock, getImageFileMock } = vi.hoisted(() => {
+  return { listResultsMock: vi.fn(), getImageFileMock: vi.fn() }
 })
 
 vi.mock('../services/api', () => {
   return {
     listResults: listResultsMock,
+    getImageFile: getImageFileMock,
   }
 })
 
 describe('DashboardPage', () => {
   afterEach(() => {
     listResultsMock.mockReset()
+    getImageFileMock.mockReset()
     localStorage.clear()
   })
 
@@ -45,6 +47,7 @@ describe('DashboardPage', () => {
         },
       ],
     })
+    getImageFileMock.mockResolvedValue(new Blob(['x'], { type: 'image/jpeg' }))
 
     setToken('token-1')
     render(
@@ -55,10 +58,10 @@ describe('DashboardPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByLabelText('Buscar')).toHaveValue('abc')
-    expect(screen.getByLabelText('Estado')).toHaveValue('processed')
-    expect(screen.getByLabelText('Desde')).toHaveValue('2026-05-07')
-    expect(screen.getByLabelText('Hasta')).toHaveValue('2026-05-07')
+    expect(screen.getByLabelText('Search')).toHaveValue('abc')
+    expect(screen.getByLabelText('Status')).toHaveValue('processed')
+    expect(screen.getByLabelText('From')).toHaveValue('2026-05-07')
+    expect(screen.getByLabelText('To')).toHaveValue('2026-05-07')
 
     const link = await screen.findByRole('link', { name: 'abc-1' })
     expect(link.getAttribute('href')).toContain('/results/abc-1')
@@ -99,6 +102,7 @@ describe('DashboardPage', () => {
             },
           ],
         })
+      getImageFileMock.mockResolvedValue(new Blob(['x'], { type: 'image/jpeg' }))
 
       setToken('token-1')
       render(
@@ -113,13 +117,13 @@ describe('DashboardPage', () => {
         await vi.advanceTimersByTimeAsync(500)
       })
       expect(screen.getByRole('link', { name: 'r1' })).toBeInTheDocument()
-      expect(screen.queryByLabelText(/nuevos resultados/i)).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/new results/i)).not.toBeInTheDocument()
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000)
       })
 
-      expect(screen.getByLabelText(/nuevos resultados/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/new results/i)).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

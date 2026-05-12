@@ -1,5 +1,7 @@
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 JPEG_SIGNATURE = b"\xff\xd8\xff"
+WEBP_RIFF_PREFIX = b"RIFF"
+WEBP_FORMAT_MARKER = b"WEBP"
 
 
 class ImageValidationError(Exception):
@@ -23,6 +25,8 @@ def detect_image_format(data: bytes) -> str | None:
         return "jpeg"
     if data.startswith(PNG_SIGNATURE):
         return "png"
+    if len(data) >= 12 and data.startswith(WEBP_RIFF_PREFIX) and data[8:12] == WEBP_FORMAT_MARKER:
+        return "webp"
     return None
 
 
@@ -44,6 +48,10 @@ def validate_image_integrity(data: bytes) -> None:
             raise InvalidImageIntegrityError("invalid jpeg")
         if not data.endswith(b"\xff\xd9"):
             raise InvalidImageIntegrityError("invalid jpeg")
+        return
+    if detected == "webp":
+        if len(data) < 16:
+            raise InvalidImageIntegrityError("invalid webp")
         return
     raise InvalidImageIntegrityError("unknown format")
 

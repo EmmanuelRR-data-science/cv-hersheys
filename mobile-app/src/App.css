@@ -149,3 +149,50 @@
   color: var(--muted);
   font-size: 13px;
 }
+
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.store-select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.mode-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.file-input-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.file-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.result-json {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text);
+}

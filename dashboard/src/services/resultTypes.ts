@@ -38,9 +38,23 @@ export type ResultSalesData = {
   topStores: SalesTopStore[]
 }
 
+export type OcrInsights = {
+  totalProducts: number
+  detectedBoxes: number
+  hersheysCount: number
+  directCompetitionCount: number
+  indirectCompetitionCount: number
+  hersheysSharePct: number
+  directSharePct: number
+  indirectSharePct: number
+  processingSeconds: number | null
+  topDetectedLabel: string | null
+}
+
 export type ProcessedResultPayload = {
   placeholder?: boolean
   sales?: ResultSalesData
+  ocrInsights?: OcrInsights
   [key: string]: unknown
 }
 
@@ -50,6 +64,7 @@ export type ResultItem = {
   status: string
   results?: ProcessedResultPayload | null
   processed_at?: string | null
+  uploaded_at?: string | null
 }
 
 export type ResultListResponse = {

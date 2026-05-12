@@ -39,4 +39,4 @@ def _clear_async_engine_cache() -> None:
     _engine_pid = None
 
 
-setattr(get_async_engine, "cache_clear", _clear_async_engine_cache)
+get_async_engine.cache_clear = _clear_async_engine_cache  # type: ignore[attr-defined]
