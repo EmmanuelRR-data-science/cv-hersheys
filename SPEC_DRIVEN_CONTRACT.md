@@ -124,6 +124,7 @@ El dashboard debe consumir un modelo interno consistente:
 - Dashboard opera como vista global compartida: cualquier sesion valida creada con `hersheys / cv-hersheys` consulta resultados e imagenes sin aislamiento por usuario/token. **Closed**
 - Dashboard actualiza automaticamente la lista completa cuando detecta resultados nuevos, sin requerir que el usuario presione `Refresh`. **Closed**
 - En dashboard, ocultar `Sales data` por defecto detras de una constante/flag en `false`, conservando el codigo para reactivacion futura. **Closed**
+- En mobile, toda imagen enviada a `get_image_info` y al upload del dashboard debe comprimirse/redimensionarse primero a JPEG optimizado para evitar timeouts con fotos grandes de celular. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 
@@ -151,6 +152,7 @@ El dashboard debe consumir un modelo interno consistente:
 - La seccion comercial del dashboard no debe exponer nombres de llaves tecnicas del proveedor (`conteo_general`, `acomodo_filas`, `precios`, `xyxy`) como labels visibles; debe usar nombres de negocio en ingles. **Closed**
 - Los endpoints de consulta usados por dashboard (`/api/v1/results`, `/api/v1/images`, archivos, anotados y OCR info) deben devolver datos globales a cualquier usuario autenticado; `POST /api/v1/images` conserva modo demo sin login para mobile. **Closed**
 - La seccion `Sales data` no debe renderizarse en modo normal; solo puede mostrarse si la flag de dashboard se reactiva explicitamente. **Closed**
+- La app mobile no debe enviar el blob original de camara/archivo directo al OCR cuando exceda el perfil operativo; debe usar una version JPEG optimizada y mostrar el tamano optimizado en el estado de procesamiento. **Closed**
 
 ## 6) Implementation Spec (Atomic)
 
@@ -177,6 +179,7 @@ El dashboard debe consumir un modelo interno consistente:
 17. Hacer globales las consultas del dashboard para resultados e imagenes, manteniendo autenticacion pero sin filtro por propietario.
 18. Cambiar polling del dashboard para actualizar automaticamente `items` cuando detecte nuevos resultados.
 19. Ocultar la seccion `Sales data` con flag deshabilitada por defecto y mantener el codigo listo para reactivacion.
+20. Comprimir/redimensionar en mobile antes de invocar `get_image_info` y reutilizar esa misma imagen optimizada para el upload al dashboard.
 
 ## 7) Verified Code (Test Plan)
 
@@ -198,3 +201,4 @@ El dashboard debe consumir un modelo interno consistente:
 - Tests backend para visibilidad global de resultados/imagenes entre usuarios autenticados.
 - Tests dashboard para auto-refresh de lista al detectar nuevos resultados.
 - Tests dashboard para confirmar que `Sales data` queda oculto por defecto.
+- Tests mobile para confirmar que el OCR y upload usan la imagen optimizada, no el blob original grande.

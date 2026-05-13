@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import App from './App'
 import { uploadImage } from './services/api'
+import { compressImageToJpeg } from './services/compression'
 import { getImageInfo } from './services/ocr'
 
 vi.mock('./components/CameraCapture/CameraCapture', () => ({
@@ -18,6 +19,10 @@ vi.mock('./services/api', () => ({
   uploadImage: vi.fn(),
 }))
 
+vi.mock('./services/compression', () => ({
+  compressImageToJpeg: vi.fn(async () => new Blob([new Uint8Array(1536)], { type: 'image/jpeg' })),
+}))
+
 vi.mock('./services/ocr', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./services/ocr')>()
   return {
@@ -26,6 +31,7 @@ vi.mock('./services/ocr', async (importOriginal) => {
   }
 })
 
+const mockedCompressImageToJpeg = vi.mocked(compressImageToJpeg)
 const mockedGetImageInfo = vi.mocked(getImageInfo)
 const mockedUploadImage = vi.mocked(uploadImage)
 
@@ -79,9 +85,16 @@ describe('App', () => {
     await user.selectOptions(screen.getByRole('combobox'), 'WMT-UNIV')
     await user.click(screen.getByRole('button', { name: /Upload file/i }))
 
-    const file = new File([new Uint8Array(2048)], 'anaquel.jpg', { type: 'image/jpeg' })
+    const optimizedBlob = new Blob([new Uint8Array(1536)], { type: 'image/jpeg' })
+    Object.defineProperty(optimizedBlob, 'arrayBuffer', {
+      value: vi.fn(async () => new ArrayBuffer(1536)),
+      configurable: true,
+    })
+    mockedCompressImageToJpeg.mockResolvedValueOnce(optimizedBlob)
+
+    const file = new File([new Uint8Array(4096)], 'anaquel.jpg', { type: 'image/jpeg' })
     Object.defineProperty(file, 'arrayBuffer', {
-      value: vi.fn(async () => new ArrayBuffer(2048)),
+      value: vi.fn(async () => new ArrayBuffer(4096)),
       configurable: true,
     })
     await user.upload(screen.getByLabelText('Select image (.jpg or .png)'), file)
@@ -90,11 +103,27 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/dashboard id: img-123/i)).toBeInTheDocument()
     })
+    expect(mockedCompressImageToJpeg).toHaveBeenCalledWith(
+      file,
+      expect.objectContaining({
+        maxBytes: 2.5 * 1024 * 1024,
+        maxWidth: 2000,
+        maxHeight: 2000,
+      }),
+    )
+    expect(mockedGetImageInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'anaquel.jpg',
+        contentType: 'image/jpeg',
+        blob: expect.objectContaining({ size: 1536 }),
+      }),
+    )
     expect(mockedUploadImage).toHaveBeenCalledWith(
       expect.objectContaining({
         filename: 'anaquel.jpg',
         storeName: 'Walmart Universidad',
         storeCode: 'WMT-UNIV',
+        blob: expect.objectContaining({ size: 1536 }),
       }),
     )
     expect(screen.queryByText(/Hershey's response/i)).not.toBeInTheDocument()

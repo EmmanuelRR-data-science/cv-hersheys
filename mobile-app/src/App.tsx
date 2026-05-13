@@ -5,8 +5,10 @@ import { CameraCapture } from './components/CameraCapture/CameraCapture'
 import { ImagePreview } from './components/ImagePreview/ImagePreview'
 import { Button } from './components/UI/Button'
 import { Header } from './components/UI/Header'
+import { config } from './config'
 import { useOffline } from './hooks/useOffline'
 import { uploadImage } from './services/api'
+import { compressImageToJpeg } from './services/compression'
 import { buildHersheysGetImageInfoResponse, getImageInfo, type GetImageInfoResponse } from './services/ocr'
 
 type Captured = { blob: Blob; filename: string; contentType: string }
@@ -21,6 +23,14 @@ const STORES = [
 ] as const
 
 const SHOW_DEBUG_JSON = false
+const OCR_IMAGE_MAX_BYTES = Math.min(config.maxUploadBytes, 2.5 * 1024 * 1024)
+const OCR_IMAGE_MAX_DIMENSION = 2000
+
+function toJpegFilename(filename: string): string {
+  const trimmed = filename.trim()
+  if (!trimmed) return `capture-${Date.now()}.jpg`
+  return /\.[^.]+$/.test(trimmed) ? trimmed.replace(/\.[^.]+$/, '.jpg') : `${trimmed}.jpg`
+}
 
 function App() {
   const { isOnline } = useOffline()
@@ -140,25 +150,43 @@ function App() {
                 return
               }
 
-              let originalBuffer: ArrayBuffer
+              const originalSizeKb = (captured.blob.size / 1024).toFixed(1)
+              setStatus('processing')
+              setMessage(`Optimizing image for OCR (${originalSizeKb} KB)...`)
+
+              let optimizedBlob: Blob
               try {
-                originalBuffer = await captured.blob.arrayBuffer()
+                optimizedBlob = await compressImageToJpeg(captured.blob, {
+                  maxBytes: OCR_IMAGE_MAX_BYTES,
+                  maxWidth: OCR_IMAGE_MAX_DIMENSION,
+                  maxHeight: OCR_IMAGE_MAX_DIMENSION,
+                  initialQuality: 0.85,
+                  minQuality: 0.6,
+                })
               } catch {
                 setStatus('error')
-                setMessage('Could not read the selected image bytes.')
+                setMessage('Could not optimize the selected image. Try another photo.')
                 return
               }
-              const detectedType = captured.contentType || captured.blob.type || 'image/jpeg'
-              const cloneBlob = () => new Blob([originalBuffer.slice(0)], { type: detectedType })
-              const sizeKb = (originalBuffer.byteLength / 1024).toFixed(1)
 
-              setStatus('processing')
-              setMessage(`Processing image with get_image_info (${sizeKb} KB)...`)
+              let optimizedBuffer: ArrayBuffer
+              try {
+                optimizedBuffer = await optimizedBlob.arrayBuffer()
+              } catch {
+                setStatus('error')
+                setMessage('Could not read the optimized image bytes.')
+                return
+              }
+              const optimizedFilename = toJpegFilename(captured.filename)
+              const cloneBlob = () => new Blob([optimizedBuffer.slice(0)], { type: 'image/jpeg' })
+              const sizeKb = (optimizedBuffer.byteLength / 1024).toFixed(1)
+
+              setMessage(`Processing optimized image with get_image_info (${sizeKb} KB)...`)
               try {
                 const raw = await getImageInfo({
                   blob: cloneBlob(),
-                  filename: captured.filename,
-                  contentType: detectedType,
+                  filename: optimizedFilename,
+                  contentType: 'image/jpeg',
                 })
                 const hersheysPayload = buildHersheysGetImageInfoResponse(raw, {
                   storeName: selectedStore.name,
@@ -168,7 +196,7 @@ function App() {
                 try {
                   const uploaded = await uploadImage({
                     blob: cloneBlob(),
-                    filename: captured.filename,
+                    filename: optimizedFilename,
                     storeName: selectedStore.name,
                     storeCode: selectedStore.code,
                   })
