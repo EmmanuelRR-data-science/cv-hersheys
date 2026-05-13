@@ -84,7 +84,7 @@ def test_get_image_file_returns_bytes_and_content_type(tmp_path, monkeypatch) ->
     assert response.content == b"abc"
 
 
-def test_get_image_file_not_found_for_other_user(tmp_path, monkeypatch) -> None:
+def test_get_image_file_returns_bytes_for_other_users_image(tmp_path, monkeypatch) -> None:
     db_path = Path(tmp_path) / "images_file2.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
@@ -146,7 +146,8 @@ def test_get_image_file_not_found_for_other_user(tmp_path, monkeypatch) -> None:
     response = client.get(
         f"/api/v1/images/{image_id}/file", headers={"Authorization": f"Bearer {token}"}
     )
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.content == b"abc"
 
 
 def test_get_image_file_allows_analyst_for_other_users_image(tmp_path, monkeypatch) -> None:

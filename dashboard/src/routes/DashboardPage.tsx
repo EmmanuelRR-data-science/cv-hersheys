@@ -29,10 +29,6 @@ export function DashboardPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
   const [brokenPreviewIds, setBrokenPreviewIds] = useState<Record<string, true>>({})
-  const [baselineReady, setBaselineReady] = useState(false)
-  const [lastSeenTotal, setLastSeenTotal] = useState(0)
-  const [lastSeenLatestId, setLastSeenLatestId] = useState<string | null>(null)
-  const [hasNewResults, setHasNewResults] = useState(false)
   const previewUrlsRef = useRef<Record<string, string>>({})
   const query = searchParams.get('q') ?? ''
   const statusFilter = searchParams.get('status') ?? 'all'
@@ -113,45 +109,35 @@ export function DashboardPage() {
       return
     }
     let cancelled = false
-    const run = async (params: { resetNewResults: boolean }) => {
+    const run = async () => {
       setStatus('loading')
       try {
         const res = await listResults({ token, page: 1, limit: 10 })
         if (cancelled) return
         setItems(res.items)
-        setBaselineReady(true)
-        setLastSeenTotal(res.total)
-        setLastSeenLatestId(res.items[0]?.id ?? null)
-        if (params.resetNewResults) {
-          setHasNewResults(false)
-        }
         setStatus('ready')
       } catch {
         if (cancelled) return
         setStatus('error')
       }
     }
-    void run({ resetNewResults: true })
+    void run()
     return () => {
       cancelled = true
     }
   }, [navigate, token])
 
   useEffect(() => {
-    if (!token || !baselineReady) return
+    if (!token) return
 
     let cancelled = false
     const interval = setInterval(() => {
       const run = async () => {
         try {
-          const res = await listResults({ token, page: 1, limit: 1 })
+          const res = await listResults({ token, page: 1, limit: 10 })
           if (cancelled) return
-          const latestId = res.items[0]?.id ?? null
-          if (!latestId) return
-
-          if (res.total > lastSeenTotal || latestId !== lastSeenLatestId) {
-            setHasNewResults(true)
-          }
+          setItems(res.items)
+          setStatus('ready')
         } catch {
           return
         }
@@ -163,7 +149,7 @@ export function DashboardPage() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [baselineReady, lastSeenLatestId, lastSeenTotal, token])
+  }, [token])
 
   const setParam = (key: string, value: string) => {
     setSearchParams(
@@ -201,36 +187,14 @@ export function DashboardPage() {
     navigate('/login')
   }
 
-  const refresh = async () => {
-    if (!token) return
-    setStatus('loading')
-    try {
-      const res = await listResults({ token, page: 1, limit: 10 })
-      setItems(res.items)
-      setBaselineReady(true)
-      setLastSeenTotal(res.total)
-      setLastSeenLatestId(res.items[0]?.id ?? null)
-      setHasNewResults(false)
-      setStatus('ready')
-    } catch {
-      setStatus('error')
-    }
-  }
-
   return (
     <div className="dash">
       <header className="dash-header">
         <div className="dash-title">
           <img className="hersheys-logo-header" src="/hersheys-logo.svg" alt="Logo Hershey's" />
           <span>Hershey's CV Dashboard</span>
-          {hasNewResults ? <span className="notif-dot" aria-label="New results available" /> : null}
         </div>
         <div className="dash-actions">
-          {hasNewResults ? (
-            <button type="button" className="btn btn-secondary" onClick={() => void refresh()}>
-              Refresh
-            </button>
-          ) : null}
           <button type="button" className="btn btn-secondary" onClick={logout}>
             Sign out
           </button>

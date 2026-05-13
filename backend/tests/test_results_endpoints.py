@@ -16,7 +16,7 @@ from app.models.user import User
 JWT_SECRET = "dev-secret-dev-secret-dev-secret-dev-secret"
 
 
-def test_results_list_returns_all_for_analyst_and_scoped_for_operator(tmp_path) -> None:
+def test_results_list_returns_all_for_any_authenticated_user(tmp_path) -> None:
     db_path = Path(tmp_path) / "results.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
@@ -101,4 +101,4 @@ def test_results_list_returns_all_for_analyst_and_scoped_for_operator(tmp_path) 
 
     op_results = client.get("/api/v1/results", headers={"Authorization": f"Bearer {op_token}"})
     assert op_results.status_code == 200
-    assert op_results.json()["total"] == 1
+    assert op_results.json()["total"] == 2

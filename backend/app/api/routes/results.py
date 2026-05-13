@@ -36,7 +36,7 @@ async def list_results(
     page: int = 1,
     limit: int = 10,
 ) -> ResultListResponse:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
@@ -47,40 +47,16 @@ async def list_results(
     safe_limit = min(max(limit, 1), 100)
     offset = (safe_page - 1) * safe_limit
 
-    is_privileged = user.role in {"analyst", "admin"}
-
-    if is_privileged:
-        total = (
-            await session.execute(select(func.count()).select_from(ProcessingResult))
-        ).scalar_one()
-        rows = (
-            await session.execute(
-                select(ProcessingResult, Image.created_at)
-                .join(Image, Image.id == ProcessingResult.image_id)
-                .order_by(ProcessingResult.created_at.desc())
-                .offset(offset)
-                .limit(safe_limit)
-            )
-        ).all()
-    else:
-        total = (
-            await session.execute(
-                select(func.count())
-                .select_from(ProcessingResult)
-                .join(Image, Image.id == ProcessingResult.image_id)
-                .where(Image.user_id == user.id)
-            )
-        ).scalar_one()
-        rows = (
-            await session.execute(
-                select(ProcessingResult, Image.created_at)
-                .join(Image, Image.id == ProcessingResult.image_id)
-                .where(Image.user_id == user.id)
-                .order_by(ProcessingResult.created_at.desc())
-                .offset(offset)
-                .limit(safe_limit)
-            )
-        ).all()
+    total = (await session.execute(select(func.count()).select_from(ProcessingResult))).scalar_one()
+    rows = (
+        await session.execute(
+            select(ProcessingResult, Image.created_at)
+            .join(Image, Image.id == ProcessingResult.image_id)
+            .order_by(ProcessingResult.created_at.desc())
+            .offset(offset)
+            .limit(safe_limit)
+        )
+    ).all()
 
     items = [
         ResultItem(
@@ -104,7 +80,7 @@ async def get_result(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> ResultItem:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
@@ -115,28 +91,15 @@ async def get_result(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    is_privileged = user.role in {"analyst", "admin"}
-
-    if is_privileged:
-        result_row = (
-            await session.execute(select(ProcessingResult).where(ProcessingResult.id == parsed_id))
-        ).scalar_one_or_none()
-        image_created_at = None
-        if result_row is not None:
-            created_at_query = select(Image.created_at).where(Image.id == result_row.image_id)
-            image_created_at = (
-                await session.execute(created_at_query)
-            ).scalar_one_or_none()
-    else:
-        result_with_image = (
-            await session.execute(
-                select(ProcessingResult, Image.created_at)
-                .join(Image, Image.id == ProcessingResult.image_id)
-                .where(ProcessingResult.id == parsed_id, Image.user_id == user.id)
-            )
-        ).one_or_none()
-        result_row = result_with_image[0] if result_with_image is not None else None
-        image_created_at = result_with_image[1] if result_with_image is not None else None
+    result_with_image = (
+        await session.execute(
+            select(ProcessingResult, Image.created_at)
+            .join(Image, Image.id == ProcessingResult.image_id)
+            .where(ProcessingResult.id == parsed_id)
+        )
+    ).one_or_none()
+    result_row = result_with_image[0] if result_with_image is not None else None
+    image_created_at = result_with_image[1] if result_with_image is not None else None
 
     if result_row is None:
         raise HTTPException(status_code=404, detail="not found")

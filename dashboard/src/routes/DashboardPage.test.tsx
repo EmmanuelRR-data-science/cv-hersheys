@@ -76,7 +76,7 @@ describe('DashboardPage', () => {
     })
   })
 
-  test('shows an indicator when new results are available (15s polling)', async () => {
+  test('automatically refreshes the results list during polling', async () => {
     vi.useFakeTimers()
     try {
       listResultsMock
@@ -97,6 +97,12 @@ describe('DashboardPage', () => {
             {
               id: 'r2',
               image_id: 'i2',
+              status: 'processed',
+              processed_at: new Date(2026, 4, 7, 12, 0, 0).toISOString(),
+            },
+            {
+              id: 'r1',
+              image_id: 'i1',
               status: 'processed',
               processed_at: new Date(2026, 4, 7, 12, 0, 0).toISOString(),
             },
@@ -123,7 +129,8 @@ describe('DashboardPage', () => {
         await vi.advanceTimersByTimeAsync(15000)
       })
 
-      expect(screen.getByLabelText(/new results/i)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'r2' })).toBeInTheDocument()
+      expect(screen.queryByLabelText(/new results/i)).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

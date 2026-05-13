@@ -15,7 +15,7 @@ from app.models.user import User
 JWT_SECRET = "dev-secret-dev-secret-dev-secret-dev-secret"
 
 
-def test_list_images_returns_only_current_users_images(tmp_path) -> None:
+def test_list_images_returns_all_images_for_authenticated_user(tmp_path) -> None:
     db_path = Path(tmp_path) / "list.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
@@ -88,14 +88,15 @@ def test_list_images_returns_only_current_users_images(tmp_path) -> None:
     response = client.get("/api/v1/images", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 1
-    assert len(body["items"]) == 1
-    assert body["items"][0]["original_filename"] == "a.jpg"
-    assert body["items"][0]["store_name"] == "Walmart Universidad"
-    assert body["items"][0]["store_code"] == "WMT-UNIV"
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
+    items_by_filename = {item["original_filename"]: item for item in body["items"]}
+    assert set(items_by_filename) == {"a.jpg", "b.jpg"}
+    assert items_by_filename["a.jpg"]["store_name"] == "Walmart Universidad"
+    assert items_by_filename["a.jpg"]["store_code"] == "WMT-UNIV"
 
 
-def test_get_image_by_id_returns_404_when_not_owned(tmp_path) -> None:
+def test_get_image_by_id_returns_other_users_image_for_authenticated_user(tmp_path) -> None:
     db_path = Path(tmp_path) / "list.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
     sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
@@ -155,7 +156,8 @@ def test_get_image_by_id_returns_404_when_not_owned(tmp_path) -> None:
     response = client.get(
         f"/api/v1/images/{other_image_id}", headers={"Authorization": f"Bearer {token}"}
     )
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json()["original_filename"] == "b.jpg"
 
 
 def test_get_image_by_id_allows_analyst_for_other_users_image(tmp_path) -> None:

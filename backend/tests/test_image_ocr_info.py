@@ -4,8 +4,7 @@ Validates the on-demand OCR proxy + MinIO JSON cache behavior:
 - Cache hit short-circuits the upstream OCR call.
 - Cache miss triggers `fetch_image_info`, returns payload and writes cache.
 - Upstream failure maps to 502 without poisoning the cache.
-- Auth/ownership rules mirror `/file` (operators only see their own).
-- Analysts/admins can see any image.
+- Auth rules mirror the dashboard global view (authenticated users can read any image).
 """
 
 from __future__ import annotations
@@ -199,7 +198,11 @@ def test_ocr_info_cache_miss_fetches_upstream_and_writes_cache(
     monkeypatch.setattr(images_routes, "get_json", cache_miss_get_json)
     monkeypatch.setattr(images_routes, "fetch_image_info", fake_fetch)
     monkeypatch.setattr(images_routes, "put_json", fake_put_json)
-    monkeypatch.setattr(images_routes, "get_bytes", lambda **_: b"\xff\xd8\xff" + b"\x00" * 2000 + b"\xff\xd9")
+    monkeypatch.setattr(
+        images_routes,
+        "get_bytes",
+        lambda **_: b"\xff\xd8\xff" + b"\x00" * 2000 + b"\xff\xd9",
+    )
 
     app = create_app()
 
@@ -279,7 +282,11 @@ def test_ocr_info_upstream_failure_returns_502(
     monkeypatch.setattr(images_routes, "get_json", cache_miss)
     monkeypatch.setattr(images_routes, "fetch_image_info", boom_fetch)
     monkeypatch.setattr(images_routes, "put_json", boom_put)
-    monkeypatch.setattr(images_routes, "get_bytes", lambda **_: b"\xff\xd8\xff" + b"\x00" * 2000 + b"\xff\xd9")
+    monkeypatch.setattr(
+        images_routes,
+        "get_bytes",
+        lambda **_: b"\xff\xd8\xff" + b"\x00" * 2000 + b"\xff\xd9",
+    )
 
     app = create_app()
 
@@ -356,7 +363,7 @@ def test_ocr_info_returns_404_when_image_missing(
     assert response.status_code == 404
 
 
-def test_ocr_info_blocks_other_users_image_for_operator(
+def test_ocr_info_allows_authenticated_user_to_read_any_image(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     engine, sessionmaker = _bootstrap_db(tmp_path, "ocr_info_otheruser.db")
@@ -401,10 +408,15 @@ def test_ocr_info_blocks_other_users_image_for_operator(
 
     import app.api.routes.images as images_routes
 
+    cached_payload = {
+        "status_message": "Imagen procesada correctamente.",
+        "filename": "photo.jpg",
+    }
+    monkeypatch.setattr(images_routes, "get_json", lambda **_: cached_payload)
     monkeypatch.setattr(
         images_routes,
         "fetch_image_info",
-        lambda **_: pytest.fail("upstream must not be called for forbidden image"),
+        lambda **_: pytest.fail("upstream must not be called when cache exists"),
     )
 
     app = create_app()
@@ -424,7 +436,8 @@ def test_ocr_info_blocks_other_users_image_for_operator(
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json() == cached_payload
 
 
 def test_ocr_info_allows_analyst_to_read_any_image(
@@ -539,7 +552,10 @@ def test_ocr_info_returns_422_when_original_too_small(
 
     import app.api.routes.images as images_routes
 
-    monkeypatch.setattr(images_routes, "get_json", lambda **_: (_ for _ in ()).throw(FileNotFoundError()))
+    def cache_miss(**_kwargs: Any) -> dict[str, Any]:
+        raise FileNotFoundError()
+
+    monkeypatch.setattr(images_routes, "get_json", cache_miss)
     monkeypatch.setattr(images_routes, "get_bytes", lambda **_: b"tiny")
     monkeypatch.setattr(
         images_routes,

@@ -170,43 +170,23 @@ async def list_images(
     page: int = 1,
     limit: int = 10,
 ) -> ImageListResponse:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
-    is_privileged = user.role in {"analyst", "admin"}
 
     safe_page = max(page, 1)
     safe_limit = min(max(limit, 1), 100)
     offset = (safe_page - 1) * safe_limit
 
-    if is_privileged:
-        total = (await session.execute(select(func.count()).select_from(Image))).scalar_one()
-        rows = (
-            await session.execute(
-                select(Image)
-                .order_by(Image.created_at.desc())
-                .offset(offset)
-                .limit(safe_limit)
-            )
-        ).scalars()
-    else:
-        total = (
-            await session.execute(
-                select(func.count()).select_from(Image).where(Image.user_id == user.id)
-            )
-        ).scalar_one()
-        rows = (
-            await session.execute(
-                select(Image)
-                .where(Image.user_id == user.id)
-                .order_by(Image.created_at.desc())
-                .offset(offset)
-                .limit(safe_limit)
-            )
-        ).scalars()
+    total = (await session.execute(select(func.count()).select_from(Image))).scalar_one()
+    rows = (
+        await session.execute(
+            select(Image).order_by(Image.created_at.desc()).offset(offset).limit(safe_limit)
+        )
+    ).scalars()
 
     items = [
         ImageItem(
@@ -234,22 +214,18 @@ async def get_image(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageItem:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
-    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    query = select(Image).where(Image.id == parsed_id)
-    if not is_privileged:
-        query = query.where(Image.user_id == user.id)
-    image = (await session.execute(query)).scalar_one_or_none()
+    image = (await session.execute(select(Image).where(Image.id == parsed_id))).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 
@@ -274,22 +250,18 @@ async def get_image_file(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> Response:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
-    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    query = select(Image).where(Image.id == parsed_id)
-    if not is_privileged:
-        query = query.where(Image.user_id == user.id)
-    image = (await session.execute(query)).scalar_one_or_none()
+    image = (await session.execute(select(Image).where(Image.id == parsed_id))).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 
@@ -323,22 +295,18 @@ async def get_image_annotated(
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
 ) -> Response:
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
-    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    query = select(Image).where(Image.id == parsed_id)
-    if not is_privileged:
-        query = query.where(Image.user_id == user.id)
-    image = (await session.execute(query)).scalar_one_or_none()
+    image = (await session.execute(select(Image).where(Image.id == parsed_id))).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 
@@ -415,22 +383,18 @@ async def get_image_ocr_info(
     provider data on demand for the dashboard's "Vista original" panel.
     """
 
-    user = await get_current_user(
+    await get_current_user(
         token=token,
         session=session,
         jwt_secret_key=settings.jwt_secret_key,
         jwt_algorithm=settings.jwt_algorithm,
     )
-    is_privileged = user.role in {"analyst", "admin"}
     try:
         parsed_id = uuid.UUID(image_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="not found") from exc
 
-    query = select(Image).where(Image.id == parsed_id)
-    if not is_privileged:
-        query = query.where(Image.user_id == user.id)
-    image = (await session.execute(query)).scalar_one_or_none()
+    image = (await session.execute(select(Image).where(Image.id == parsed_id))).scalar_one_or_none()
     if image is None:
         raise HTTPException(status_code=404, detail="not found")
 

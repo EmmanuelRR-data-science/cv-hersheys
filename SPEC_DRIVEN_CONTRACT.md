@@ -121,6 +121,8 @@ El dashboard debe consumir un modelo interno consistente:
 - En mobile, el JSON crudo de `get_image_info` queda oculto por defecto detras de una constante/flag debug en `false`; el codigo y la estructura tipada se conservan para depuracion futura. **Closed**
 - En la subida mobile, enviar `store_name` y `store_code` como metadata opcional en `POST /api/v1/images`; backend la persiste en `images` y dashboard la muestra junto a fecha de carga y nombre de archivo. **Closed**
 - En dashboard, renombrar `JSON breakdown` a un titulo comercial, ocultar `Hershey's view` detras de una constante/flag debug en `false`, y presentar la respuesta API con labels estandar en ingles sin guiones bajos. **Closed**
+- Dashboard opera como vista global compartida: cualquier sesion valida creada con `hersheys / cv-hersheys` consulta resultados e imagenes sin aislamiento por usuario/token. **Closed**
+- Dashboard actualiza automaticamente la lista completa cuando detecta resultados nuevos, sin requerir que el usuario presione `Refresh`. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 
@@ -146,6 +148,7 @@ El dashboard debe consumir un modelo interno consistente:
 - La UI mobile debe confirmar explicitamente la tienda activa antes de captura/subida mediante un bloque persistente cercano al selector. **Closed**
 - Si una imagen no tiene metadata de tienda, el dashboard debe mostrar `Store: Not available` sin romper el bloque de detalles. **Closed**
 - La seccion comercial del dashboard no debe exponer nombres de llaves tecnicas del proveedor (`conteo_general`, `acomodo_filas`, `precios`, `xyxy`) como labels visibles; debe usar nombres de negocio en ingles. **Closed**
+- Los endpoints de consulta usados por dashboard (`/api/v1/results`, `/api/v1/images`, archivos, anotados y OCR info) deben devolver datos globales a cualquier usuario autenticado; `POST /api/v1/images` conserva modo demo sin login para mobile. **Closed**
 
 ## 6) Implementation Spec (Atomic)
 
@@ -169,6 +172,8 @@ El dashboard debe consumir un modelo interno consistente:
 14. Mostrar la tienda seleccionada en el bloque de detalles del dashboard junto a fecha de carga y nombre de archivo.
 15. Renombrar la seccion `JSON breakdown` y ocultar `Hershey's view` con flag debug deshabilitado por defecto.
 16. Estandarizar labels visibles del panel de respuesta API a ingles sin guiones bajos.
+17. Hacer globales las consultas del dashboard para resultados e imagenes, manteniendo autenticacion pero sin filtro por propietario.
+18. Cambiar polling del dashboard para actualizar automaticamente `items` cuando detecte nuevos resultados.
 
 ## 7) Verified Code (Test Plan)
 
@@ -187,3 +192,5 @@ El dashboard debe consumir un modelo interno consistente:
   - JSON crudo oculto por defecto.
 - Tests backend/dashboard para metadata de tienda en upload, lectura de imagen y render en detalles.
 - Tests dashboard para titulo comercial, `Hershey's view` oculto por defecto y labels API legibles.
+- Tests backend para visibilidad global de resultados/imagenes entre usuarios autenticados.
+- Tests dashboard para auto-refresh de lista al detectar nuevos resultados.
