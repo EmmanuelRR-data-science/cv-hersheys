@@ -123,6 +123,7 @@ El dashboard debe consumir un modelo interno consistente:
 - En dashboard, renombrar `JSON breakdown` a un titulo comercial, ocultar `Hershey's view` detras de una constante/flag debug en `false`, y presentar la respuesta API con labels estandar en ingles sin guiones bajos. **Closed**
 - Dashboard opera como vista global compartida: cualquier sesion valida creada con `hersheys / cv-hersheys` consulta resultados e imagenes sin aislamiento por usuario/token. **Closed**
 - Dashboard actualiza automaticamente la lista completa cuando detecta resultados nuevos, sin requerir que el usuario presione `Refresh`. **Closed**
+- En dashboard, ocultar `Sales data` por defecto detras de una constante/flag en `false`, conservando el codigo para reactivacion futura. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 
@@ -149,6 +150,7 @@ El dashboard debe consumir un modelo interno consistente:
 - Si una imagen no tiene metadata de tienda, el dashboard debe mostrar `Store: Not available` sin romper el bloque de detalles. **Closed**
 - La seccion comercial del dashboard no debe exponer nombres de llaves tecnicas del proveedor (`conteo_general`, `acomodo_filas`, `precios`, `xyxy`) como labels visibles; debe usar nombres de negocio en ingles. **Closed**
 - Los endpoints de consulta usados por dashboard (`/api/v1/results`, `/api/v1/images`, archivos, anotados y OCR info) deben devolver datos globales a cualquier usuario autenticado; `POST /api/v1/images` conserva modo demo sin login para mobile. **Closed**
+- La seccion `Sales data` no debe renderizarse en modo normal; solo puede mostrarse si la flag de dashboard se reactiva explicitamente. **Closed**
 
 ## 6) Implementation Spec (Atomic)
 
@@ -174,6 +176,7 @@ El dashboard debe consumir un modelo interno consistente:
 16. Estandarizar labels visibles del panel de respuesta API a ingles sin guiones bajos.
 17. Hacer globales las consultas del dashboard para resultados e imagenes, manteniendo autenticacion pero sin filtro por propietario.
 18. Cambiar polling del dashboard para actualizar automaticamente `items` cuando detecte nuevos resultados.
+19. Ocultar la seccion `Sales data` con flag deshabilitada por defecto y mantener el codigo listo para reactivacion.
 
 ## 7) Verified Code (Test Plan)
 
@@ -194,3 +197,4 @@ El dashboard debe consumir un modelo interno consistente:
 - Tests dashboard para titulo comercial, `Hershey's view` oculto por defecto y labels API legibles.
 - Tests backend para visibilidad global de resultados/imagenes entre usuarios autenticados.
 - Tests dashboard para auto-refresh de lista al detectar nuevos resultados.
+- Tests dashboard para confirmar que `Sales data` queda oculto por defecto.

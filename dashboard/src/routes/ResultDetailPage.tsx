@@ -18,6 +18,7 @@ import {
 import { isSalesData } from '../services/resultAdapter'
 
 const SHOW_HERSHEYS_DEBUG_VIEW = false
+const SHOW_SALES_DATA_PANEL = false
 
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount)
@@ -286,77 +287,80 @@ export function ResultDetailPage() {
               </div>
             </div>
 
-            <section className="sales-panel" aria-label="Sales data">
-              <h2 className="panel-title">Sales data</h2>
-              {salesData ? (
-                <>
-                  <div className="sales-grid">
-                    <div className="sales-card">
-                      <div className="sales-label">Product</div>
-                      <div className="sales-value">{salesData.product.productName}</div>
-                      <div className="sales-meta">
-                        {salesData.product.brand} | {salesData.product.sku} | {salesData.product.category}
+            {SHOW_SALES_DATA_PANEL ? (
+              <section className="sales-panel" aria-label="Sales data">
+                <h2 className="panel-title">Sales data</h2>
+                {salesData ? (
+                  <>
+                    <div className="sales-grid">
+                      <div className="sales-card">
+                        <div className="sales-label">Product</div>
+                        <div className="sales-value">{salesData.product.productName}</div>
+                        <div className="sales-meta">
+                          {salesData.product.brand} | {salesData.product.sku} |{' '}
+                          {salesData.product.category}
+                        </div>
+                      </div>
+                      <div className="sales-card">
+                        <div className="sales-label">Suggested price</div>
+                        <div className="sales-value">
+                          {formatCurrency(salesData.pricing.suggestedPrice, salesData.pricing.currency)}
+                        </div>
+                        <div className="sales-meta">{salesData.pricing.currency}</div>
+                      </div>
+                      <div className="sales-card">
+                        <div className="sales-label">Units sold</div>
+                        <div className="sales-value">{salesData.kpis.unitsSold.toLocaleString('es-MX')}</div>
+                        <div className="sales-meta">Margin: {salesData.kpis.estimatedMarginPct}%</div>
+                      </div>
+                      <div className="sales-card">
+                        <div className="sales-label">Estimated revenue</div>
+                        <div className="sales-value">
+                          {formatCurrency(salesData.kpis.estimatedRevenue, salesData.pricing.currency)}
+                        </div>
+                        <div className="sales-meta">Weekly trend: {salesData.trend.weeklyTrendPct}%</div>
+                      </div>
+                      <div className="sales-card">
+                        <div className="sales-label">Commercial context</div>
+                        <div className="sales-value">
+                          {salesData.context.channel} | {salesData.context.region}
+                        </div>
+                        <div className="sales-meta">Active stores: {salesData.context.storeCount}</div>
                       </div>
                     </div>
-                    <div className="sales-card">
-                      <div className="sales-label">Suggested price</div>
-                      <div className="sales-value">
-                        {formatCurrency(salesData.pricing.suggestedPrice, salesData.pricing.currency)}
-                      </div>
-                      <div className="sales-meta">{salesData.pricing.currency}</div>
-                    </div>
-                    <div className="sales-card">
-                      <div className="sales-label">Units sold</div>
-                      <div className="sales-value">{salesData.kpis.unitsSold.toLocaleString('es-MX')}</div>
-                      <div className="sales-meta">Margin: {salesData.kpis.estimatedMarginPct}%</div>
-                    </div>
-                    <div className="sales-card">
-                      <div className="sales-label">Estimated revenue</div>
-                      <div className="sales-value">
-                        {formatCurrency(salesData.kpis.estimatedRevenue, salesData.pricing.currency)}
-                      </div>
-                      <div className="sales-meta">Weekly trend: {salesData.trend.weeklyTrendPct}%</div>
-                    </div>
-                    <div className="sales-card">
-                      <div className="sales-label">Commercial context</div>
-                      <div className="sales-value">
-                        {salesData.context.channel} | {salesData.context.region}
-                      </div>
-                      <div className="sales-meta">Active stores: {salesData.context.storeCount}</div>
-                    </div>
-                  </div>
 
-                  <div className="sales-split">
-                    <div className="sales-block">
-                      <h3 className="sales-block-title">30-day series</h3>
-                      <div className="sales-scroll">
-                        {salesData.series30d.map((point) => (
-                          <div key={point.date} className="sales-row">
-                            <span>{point.date}</span>
-                            <span>{point.units} units</span>
-                            <span>{formatCurrency(point.revenue, salesData.pricing.currency)}</span>
-                          </div>
-                        ))}
+                    <div className="sales-split">
+                      <div className="sales-block">
+                        <h3 className="sales-block-title">30-day series</h3>
+                        <div className="sales-scroll">
+                          {salesData.series30d.map((point) => (
+                            <div key={point.date} className="sales-row">
+                              <span>{point.date}</span>
+                              <span>{point.units} units</span>
+                              <span>{formatCurrency(point.revenue, salesData.pricing.currency)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="sales-block">
+                        <h3 className="sales-block-title">Top stores</h3>
+                        <div className="sales-scroll">
+                          {salesData.topStores.map((store) => (
+                            <div key={store.storeName} className="sales-row">
+                              <span>{store.storeName}</span>
+                              <span>{store.units} units</span>
+                              <span>{formatCurrency(store.revenue, salesData.pricing.currency)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="sales-block">
-                      <h3 className="sales-block-title">Top stores</h3>
-                      <div className="sales-scroll">
-                        {salesData.topStores.map((store) => (
-                          <div key={store.storeName} className="sales-row">
-                            <span>{store.storeName}</span>
-                            <span>{store.units} units</span>
-                            <span>{formatCurrency(store.revenue, salesData.pricing.currency)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="empty">No sales data available.</p>
-              )}
-            </section>
+                  </>
+                ) : (
+                  <p className="empty">No sales data available.</p>
+                )}
+              </section>
+            ) : null}
 
             {ocrInsights ? (
               <section className="sales-panel" aria-label="OCR metrics">

@@ -36,7 +36,7 @@ describe('ResultDetailPage', () => {
     localStorage.clear()
   })
 
-  test('renders result details with sales data', async () => {
+  test('renders result details with sales data hidden by default', async () => {
     getResultMock.mockResolvedValueOnce({
       id: 'r1',
       image_id: 'i1',
@@ -97,9 +97,8 @@ describe('ResultDetailPage', () => {
     expect(screen.getByText(/r1/)).toBeInTheDocument()
     expect(screen.getByText('processed', { selector: '.pill' })).toBeInTheDocument()
     expect(screen.getByText('Store: Walmart Universidad (WMT-UNIV)')).toBeInTheDocument()
-    const salesPanel = screen.getByLabelText('Sales data')
-    expect(salesPanel).toHaveTextContent('Kisses Milk Chocolate')
-    expect(salesPanel).toHaveTextContent('Walmart Universidad')
+    expect(screen.queryByLabelText('Sales data')).not.toBeInTheDocument()
+    expect(screen.queryByText('Kisses Milk Chocolate')).not.toBeInTheDocument()
     const ocrPanel = screen.getByLabelText('OCR metrics')
     expect(ocrPanel).toHaveTextContent('Detected products')
     expect(ocrPanel).toHaveTextContent('Hershey Kisses')
@@ -193,7 +192,7 @@ describe('ResultDetailPage', () => {
     expect(originalView).toHaveTextContent('ocr info failed: 502')
   })
 
-  test('renders fallback when sales data is missing', async () => {
+  test('keeps sales data fallback hidden when sales data is missing', async () => {
     getResultMock.mockResolvedValueOnce({
       id: 'r1',
       image_id: 'i1',
@@ -213,6 +212,7 @@ describe('ResultDetailPage', () => {
 
     await screen.findByText('Details')
 
-    expect(screen.getByText(/No sales data available/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Sales data')).not.toBeInTheDocument()
+    expect(screen.queryByText(/No sales data available/i)).not.toBeInTheDocument()
   })
 })
