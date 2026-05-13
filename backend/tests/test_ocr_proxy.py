@@ -2,6 +2,7 @@ from io import BytesIO
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.api.dependencies import get_settings_dep
 from app.api.routes import ocr as ocr_route
@@ -12,11 +13,11 @@ from app.services.ocr_external import OcrExternalError
 JWT_SECRET = "dev-secret-dev-secret-dev-secret-dev-secret"
 
 
-def _padded_jpeg(min_bytes: int = 1100) -> bytes:
-    header = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
-    trailer = b"\xff\xd9"
-    padding_len = max(0, min_bytes - len(header) - len(trailer))
-    return header + (b"\x00" * padding_len) + trailer
+def _jpeg(width: int = 160, height: int = 160) -> bytes:
+    image = Image.new("RGB", (width, height), (120, 30, 30))
+    output = BytesIO()
+    image.save(output, format="JPEG", quality=95)
+    return output.getvalue()
 
 
 def _build_app():
@@ -57,7 +58,7 @@ def test_get_image_info_proxy_returns_upstream_payload(monkeypatch: pytest.Monke
     app = _build_app()
     client = TestClient(app)
 
-    payload = _padded_jpeg(2048)
+    payload = _jpeg(width=3000, height=2200)
     response = client.post(
         "/api/v1/ocr/get_image_info",
         files={"image_file": ("photo.jpg", BytesIO(payload), "image/jpeg")},
@@ -68,8 +69,11 @@ def test_get_image_info_proxy_returns_upstream_payload(monkeypatch: pytest.Monke
     assert body["total_productos"] == 4
     assert body["filename"] == "photo.jpg"
     assert captured["base_url"] == "http://ocr.test/apis/ocr"
-    assert captured["size"] == len(payload)
+    assert captured["size"] < len(payload)
+    assert captured["size"] <= 2_500_000
+    assert captured["filename"] == "photo.jpg"
     assert captured["content_type"] == "image/jpeg"
+    assert captured["timeout_seconds"] == 5.0
 
 
 def test_get_image_info_rejects_small_blob(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -120,7 +124,7 @@ def test_get_image_info_maps_upstream_error_to_502(monkeypatch: pytest.MonkeyPat
 
     response = client.post(
         "/api/v1/ocr/get_image_info",
-        files={"image_file": ("photo.jpg", BytesIO(_padded_jpeg(2048)), "image/jpeg")},
+        files={"image_file": ("photo.jpg", BytesIO(_jpeg()), "image/jpeg")},
     )
 
     assert response.status_code == 502

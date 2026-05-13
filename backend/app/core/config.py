@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     ocr_api_base_url: str = "http://136.116.56.229:8000/apis/ocr"
     ocr_api_timeout_seconds: float = 30.0
+    ocr_image_max_bytes: int = 2_500_000
+    ocr_image_max_dimension: int = 2000
 
 
 @lru_cache(maxsize=1)

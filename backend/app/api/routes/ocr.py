@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.api.dependencies import get_settings_dep
 from app.core.config import Settings
+from app.services.image_optimization import ImageOptimizationError, optimize_image_for_ocr
 from app.services.ocr_external import OcrExternalError, fetch_image_info
 from app.services.validation import (
     ImageTooLargeError,
@@ -15,12 +16,6 @@ from app.services.validation import (
 router = APIRouter(prefix="/api/v1/ocr", tags=["ocr"])
 
 _MIN_IMAGE_BYTES = 1024
-_FORMAT_TO_MIME = {
-    "jpeg": "image/jpeg",
-    "jpg": "image/jpeg",
-    "png": "image/png",
-    "webp": "image/webp",
-}
 
 
 @router.post("/get_image_info")
@@ -52,15 +47,23 @@ async def proxy_get_image_info(
     except ImageTooLargeError as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
 
-    upstream_mime = _FORMAT_TO_MIME.get(image_format, image_file.content_type or "image/jpeg")
     upstream_filename = image_file.filename or f"image.{image_format}"
+    try:
+        optimized = optimize_image_for_ocr(
+            image_bytes=data,
+            filename=upstream_filename,
+            max_bytes=settings.ocr_image_max_bytes,
+            max_dimension=settings.ocr_image_max_dimension,
+        )
+    except ImageOptimizationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
         payload = fetch_image_info(
             base_url=settings.ocr_api_base_url,
-            image_bytes=data,
-            filename=upstream_filename,
-            content_type=upstream_mime,
+            image_bytes=optimized.data,
+            filename=optimized.filename,
+            content_type=optimized.content_type,
             timeout_seconds=settings.ocr_api_timeout_seconds,
         )
     except OcrExternalError as exc:

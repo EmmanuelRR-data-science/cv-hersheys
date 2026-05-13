@@ -61,6 +61,8 @@ services:
       JWT_SECRET_KEY: dev-secret-dev-secret-dev-secret-dev-secret
       OCR_API_BASE_URL: http://136.116.56.229:8000/apis/ocr
       OCR_API_TIMEOUT_SECONDS: "30"
+      OCR_IMAGE_MAX_BYTES: "2500000"
+      OCR_IMAGE_MAX_DIMENSION: "2000"
     depends_on:
       postgres:
         condition: service_healthy
