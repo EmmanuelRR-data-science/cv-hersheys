@@ -48,6 +48,8 @@ def test_list_images_returns_only_current_users_images(tmp_path) -> None:
                         format="jpeg",
                         size_bytes=10,
                         status="pending",
+                        store_name="Walmart Universidad",
+                        store_code="WMT-UNIV",
                     ),
                     Image(
                         user_id=u2.id,
@@ -89,6 +91,8 @@ def test_list_images_returns_only_current_users_images(tmp_path) -> None:
     assert body["total"] == 1
     assert len(body["items"]) == 1
     assert body["items"][0]["original_filename"] == "a.jpg"
+    assert body["items"][0]["store_name"] == "Walmart Universidad"
+    assert body["items"][0]["store_code"] == "WMT-UNIV"
 
 
 def test_get_image_by_id_returns_404_when_not_owned(tmp_path) -> None:
@@ -184,6 +188,8 @@ def test_get_image_by_id_allows_analyst_for_other_users_image(tmp_path) -> None:
                 format="jpeg",
                 size_bytes=10,
                 status="processed",
+                store_name="Walmart Universidad",
+                store_code="WMT-UNIV",
             )
             session.add(img)
             await session.commit()
@@ -216,3 +222,5 @@ def test_get_image_by_id_allows_analyst_for_other_users_image(tmp_path) -> None:
     )
     assert response.status_code == 200
     assert response.json()["original_filename"] == "owned.jpg"
+    assert response.json()["store_name"] == "Walmart Universidad"
+    assert response.json()["store_code"] == "WMT-UNIV"

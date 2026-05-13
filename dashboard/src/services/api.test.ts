@@ -3,8 +3,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { getMe, getResult, listResults, login } from './api'
 
 const fetchMock = vi.fn()
-// @ts-expect-error test
-globalThis.fetch = fetchMock
+vi.stubGlobal('fetch', fetchMock)
 
 describe('api', () => {
   afterEach(() => {

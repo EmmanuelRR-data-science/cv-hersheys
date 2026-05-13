@@ -65,12 +65,17 @@ def test_upload_image_creates_db_record_and_returns_201(tmp_path) -> None:
 
     files = {"file": ("photo.jpg", BytesIO(_minimal_jpeg()), "image/jpeg")}
     response = client.post(
-        "/api/v1/images", files=files, headers={"Authorization": f"Bearer {token}"}
+        "/api/v1/images",
+        files=files,
+        data={"store_name": "Walmart Universidad", "store_code": "WMT-UNIV"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 201
     payload = response.json()
     assert "id" in payload
     assert payload["status"] == "pending"
+    assert payload["store_name"] == "Walmart Universidad"
+    assert payload["store_code"] == "WMT-UNIV"
 
     async def assert_db() -> None:
         async with sessionmaker() as session:
@@ -79,6 +84,8 @@ def test_upload_image_creates_db_record_and_returns_201(tmp_path) -> None:
             assert images[0].original_filename == "photo.jpg"
             assert images[0].format in {"jpeg", "png"}
             assert images[0].status == "pending"
+            assert images[0].store_name == "Walmart Universidad"
+            assert images[0].store_code == "WMT-UNIV"
 
     asyncio.run(assert_db())
 

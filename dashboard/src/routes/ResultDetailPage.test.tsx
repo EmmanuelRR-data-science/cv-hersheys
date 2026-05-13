@@ -18,6 +18,8 @@ vi.mock('../services/api', () => {
       format: 'jpeg',
       size_bytes: 3,
       status: 'processed',
+      store_name: 'Walmart Universidad',
+      store_code: 'WMT-UNIV',
       created_at: new Date().toISOString(),
     })),
     getImageFile: vi.fn(async () => new Blob(['x'], { type: 'image/jpeg' })),
@@ -94,6 +96,7 @@ describe('ResultDetailPage', () => {
 
     expect(screen.getByText(/r1/)).toBeInTheDocument()
     expect(screen.getByText('processed', { selector: '.pill' })).toBeInTheDocument()
+    expect(screen.getByText('Store: Walmart Universidad (WMT-UNIV)')).toBeInTheDocument()
     const salesPanel = screen.getByLabelText('Sales data')
     expect(salesPanel).toHaveTextContent('Kisses Milk Chocolate')
     expect(salesPanel).toHaveTextContent('Walmart Universidad')
@@ -101,12 +104,8 @@ describe('ResultDetailPage', () => {
     expect(ocrPanel).toHaveTextContent('Detected products')
     expect(ocrPanel).toHaveTextContent('Hershey Kisses')
 
-    expect(screen.getByText(/JSON breakdown/i)).toBeInTheDocument()
-    const hersheysView = screen.getByLabelText("Hershey's view")
-    expect(hersheysView).toHaveTextContent('Kisses Milk Chocolate')
-    expect(hersheysView).toHaveTextContent('HSY-KISSES-146G')
-    expect(hersheysView).toHaveTextContent('30-day series')
-    expect(hersheysView).toHaveTextContent('Top stores')
+    expect(screen.getByRole('heading', { name: 'Shelf Intelligence' })).toBeInTheDocument()
+    expect(screen.queryByLabelText("Hershey's view")).not.toBeInTheDocument()
   })
 
   test('renders provider OCR table when ocr_info resolves', async () => {
@@ -156,11 +155,14 @@ describe('ResultDetailPage', () => {
       </MemoryRouter>,
     )
 
-    const originalView = await screen.findByLabelText('Original provider view')
+    const originalView = await screen.findByLabelText('Provider API response')
     await waitFor(() => expect(originalView).toHaveTextContent('Imagen procesada correctamente.'))
     expect(originalView).toHaveTextContent('shelf.jpg')
-    expect(originalView).toHaveTextContent('conteo_general')
+    expect(originalView).toHaveTextContent('Product Count')
+    expect(originalView).not.toHaveTextContent('conteo_general')
     expect(originalView).toHaveTextContent('Habanera Roja La Guacamaya')
+    expect(originalView).toHaveTextContent("Hershey's shelf share")
+    expect(originalView).toHaveTextContent('Indirect competitor shelf share')
     expect(originalView).toHaveTextContent('22.22%')
     expect(originalView).toHaveTextContent('33.34%')
   })
@@ -184,7 +186,7 @@ describe('ResultDetailPage', () => {
       </MemoryRouter>,
     )
 
-    const originalView = await screen.findByLabelText('Original provider view')
+    const originalView = await screen.findByLabelText('Provider API response')
     await waitFor(() =>
       expect(originalView).toHaveTextContent(/Provider OCR data unavailable/i),
     )

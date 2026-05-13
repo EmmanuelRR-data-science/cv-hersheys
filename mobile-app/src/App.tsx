@@ -20,6 +20,8 @@ const STORES = [
   { code: 'HEB-LIND', name: 'HEB Lindavista' },
 ] as const
 
+const SHOW_DEBUG_JSON = false
+
 function App() {
   const { isOnline } = useOffline()
   const [captured, setCaptured] = useState<Captured | null>(null)
@@ -61,6 +63,22 @@ function App() {
               </option>
             ))}
           </select>
+          {selectedStore ? (
+            <div className="store-confirmation" aria-live="polite">
+              <div className="store-confirmation-mark" aria-hidden="true">
+                OK
+              </div>
+              <div className="store-confirmation-body">
+                <div className="store-confirmation-title">Store selected</div>
+                <div className="store-confirmation-meta">
+                  {selectedStore.name} ({selectedStore.code})
+                </div>
+                <div className="store-confirmation-help">
+                  You can now capture or upload an image.
+                </div>
+              </div>
+            </div>
+          ) : null}
           {!canCapture ? (
             <div className="status-message">Select a store first to continue.</div>
           ) : null}
@@ -151,6 +169,8 @@ function App() {
                   const uploaded = await uploadImage({
                     blob: cloneBlob(),
                     filename: captured.filename,
+                    storeName: selectedStore.name,
+                    storeCode: selectedStore.code,
                   })
                   setStatus('success')
                   setMessage(
@@ -222,7 +242,7 @@ function App() {
           {message ? <div className="status-message">{message}</div> : null}
         </div>
 
-        {result ? (
+        {SHOW_DEBUG_JSON && result ? (
           <div className="status-card">
             <div className="field-label">Hershey's response (get_image_info structure)</div>
             <pre className="result-json">{JSON.stringify(result, null, 2)}</pre>

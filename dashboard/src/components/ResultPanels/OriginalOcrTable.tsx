@@ -31,13 +31,19 @@ function getIndirectShare(payload: OcrInfoPayload): number | null {
   return null
 }
 
+function formatShelfRowName(value: string): string {
+  const match = value.match(/fila\s*(\d+)/i)
+  if (match) return `Row ${match[1]}`
+  return value.replaceAll('_', ' ')
+}
+
 export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
   if (status === 'loading' || status === 'idle') {
     return (
-      <section className="kv-panel" aria-label="Original provider view">
-        <h3 className="kv-panel-title">Original view (provider)</h3>
+      <section className="kv-panel" aria-label="Provider API response">
+        <h3 className="kv-panel-title">Provider API Response</h3>
         <p className="kv-panel-subtitle">
-          Raw `get_image_info` payload from the OCR provider.
+          Standardized fields returned by the OCR provider API.
         </p>
         <div className="skeleton-row" />
         <div className="skeleton-row" />
@@ -48,10 +54,10 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
 
   if (status === 'error' || !payload) {
     return (
-      <section className="kv-panel" aria-label="Original provider view">
-        <h3 className="kv-panel-title">Original view (provider)</h3>
+      <section className="kv-panel" aria-label="Provider API response">
+        <h3 className="kv-panel-title">Provider API Response</h3>
         <p className="kv-panel-subtitle">
-          Raw `get_image_info` payload from the OCR provider.
+          Standardized fields returned by the OCR provider API.
         </p>
         <div className="error">
           {errorMessage ?? 'Provider OCR data is not available right now.'}
@@ -72,21 +78,21 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
     { label: 'Status', value: payload.status_message ?? '—' },
     { label: 'Filename', value: payload.filename ?? '—' },
     { label: 'Total products', value: formatNumber(payload.total_productos) },
-    { label: 'Castillo count', value: formatNumber(payload.conteo_gastillo) },
-    { label: 'Direct competition count', value: formatNumber(payload.conteo_competencia_directa) },
-    { label: 'Indirect competition count', value: formatNumber(payload.conteo_competencia_indirecta) },
-    { label: 'Shelf share Castillo', value: formatPercent(payload.porcentaje_anaquel_castillo) },
-    { label: 'Shelf share direct', value: formatPercent(payload.porcentaje_anaquel_directa) },
-    { label: 'Shelf share indirect', value: formatPercent(indirectShare) },
+    { label: "Hershey's products", value: formatNumber(payload.conteo_gastillo) },
+    { label: 'Direct competitor products', value: formatNumber(payload.conteo_competencia_directa) },
+    { label: 'Indirect competitor products', value: formatNumber(payload.conteo_competencia_indirecta) },
+    { label: "Hershey's shelf share", value: formatPercent(payload.porcentaje_anaquel_castillo) },
+    { label: 'Direct competitor shelf share', value: formatPercent(payload.porcentaje_anaquel_directa) },
+    { label: 'Indirect competitor shelf share', value: formatPercent(indirectShare) },
     { label: 'Detected boxes', value: formatNumber(detectedBoxes) },
-    { label: 'Processing total', value: formatSeconds(totalTiming) },
+    { label: 'Total processing time', value: formatSeconds(totalTiming) },
   ]
 
   return (
-    <section className="kv-panel" aria-label="Original provider view">
-      <h3 className="kv-panel-title">Original view (provider)</h3>
+    <section className="kv-panel" aria-label="Provider API response">
+      <h3 className="kv-panel-title">Provider API Response</h3>
       <p className="kv-panel-subtitle">
-        Raw `get_image_info` payload from the OCR provider.
+        Standardized fields returned by the OCR provider API.
       </p>
 
       <table className="kv-table">
@@ -102,7 +108,7 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
 
       {conteoEntries.length > 0 ? (
         <details className="kv-collapse">
-          <summary>conteo_general ({conteoEntries.length} items)</summary>
+          <summary>Product Count ({conteoEntries.length} items)</summary>
           <div className="kv-scroll">
             <table className="kv-table kv-table-striped">
               <thead>
@@ -126,11 +132,11 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
 
       {acomodoEntries.length > 0 ? (
         <details className="kv-collapse">
-          <summary>acomodo_filas ({acomodoEntries.length} rows)</summary>
+          <summary>Shelf Row Layout ({acomodoEntries.length} rows)</summary>
           <div className="kv-scroll">
             {acomodoEntries.map(([rowName, items]) => (
               <div key={rowName} className="kv-subgroup">
-                <div className="kv-subgroup-title">{rowName}</div>
+                <div className="kv-subgroup-title">{formatShelfRowName(rowName)}</div>
                 <table className="kv-table kv-table-striped">
                   <tbody>
                     {Object.entries(items).map(([product, count]) => (
@@ -149,7 +155,7 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
 
       {preciosEntries.length > 0 ? (
         <details className="kv-collapse">
-          <summary>precios ({preciosEntries.length} items)</summary>
+          <summary>Pricing ({preciosEntries.length} items)</summary>
           <div className="kv-scroll">
             <table className="kv-table kv-table-striped">
               <thead>
@@ -175,15 +181,15 @@ export function OriginalOcrTable({ status, payload, errorMessage }: Props) {
 
       {detections && (detectedBoxes > 0 || (detections.confidence?.length ?? 0) > 0) ? (
         <details className="kv-collapse">
-          <summary>detections ({detectedBoxes} boxes)</summary>
+          <summary>Detections ({detectedBoxes} boxes)</summary>
           <div className="kv-scroll">
             <table className="kv-table kv-table-striped">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>xyxy</th>
-                  <th>confidence</th>
-                  <th>class</th>
+                  <th>Bounding box</th>
+                  <th>Confidence</th>
+                  <th>Class ID</th>
                 </tr>
               </thead>
               <tbody>

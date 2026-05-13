@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS images (
   width integer NULL,
   height integer NULL,
   status varchar(50) NOT NULL DEFAULT 'pending',
+  store_name varchar(255) NULL,
+  store_code varchar(50) NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

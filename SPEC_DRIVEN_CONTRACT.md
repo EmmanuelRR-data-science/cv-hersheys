@@ -4,7 +4,7 @@
 
 Como analista de Hershey's, quiero que el dashboard procese un JSON externo de anaquel (como el de `json-hersheys.txt`) y lo transforme a un modelo estable de visualizacion, para revisar KPIs y contexto comercial sin romper la UI aunque cambie el formato del proveedor.
 
-Como operador en mobile, quiero seleccionar primero la tienda donde realizo el registro y despues elegir si capturo foto o subo un archivo (`.jpg/.png`), para procesar la imagen contra `get_image_info` y visualizar una salida con estructura compatible al endpoint, pero orientada a datos de portafolio Hershey's.
+Como operador en mobile, quiero seleccionar primero la tienda donde realizo el registro, recibir confirmacion visual de esa seleccion y despues elegir si capturo foto o subo un archivo (`.jpg/.png`), para procesar la imagen contra `get_image_info` sin exponer el JSON tecnico por defecto.
 
 ## 2) Technical Contract (Locked)
 
@@ -113,10 +113,14 @@ El dashboard debe consumir un modelo interno consistente:
 - Diferir adopcion de `image_base64` hasta que exista un driver concreto (p.ej. cola offline serializable en IndexedDB o integracion JSON-only de terceros). **Closed**
 - Mantener `/predict` (imagen anotada) tambien con multipart `image` para preservar simetria de la capa Infrastructure. **Closed**
 - Exponer endpoint backend `GET /api/v1/images/{id}/ocr_info` que llama al `POST /get_image_info` del OCR externo, cachea el payload JSON en MinIO con sufijo `_ocr_info.json` y lo sirve como `application/json`. Espeja el patron `/annotated`. **Closed**
-- En la pagina de detalle del dashboard reemplazar el `pre` JSON crudo por dos tablas: izquierda `Vista Hershey's` (KPIs + series30d + topStores en secciones colapsables `details`) y derecha `Vista original (proveedor)` (datos crudos de `get_image_info`). **Closed**
+- En la pagina de detalle del dashboard reemplazar el `pre` JSON crudo por una seccion comercial de analisis de anaquel; `Hershey's view` queda disponible solo en modo debug deshabilitado y la respuesta API se muestra como panel principal con etiquetas legibles. **Closed**
 - El JSON original del proveedor (salsas) NO se persiste en `processing_results.results`; se obtiene via `/api/v1/images/{id}/ocr_info` bajo demanda. El worker sigue generando `fictitious_sales` para `result.results.sales`. **Closed**
 - Layout del par de tablas: grid de 2 columnas en desktop, apilado en mobile (`@media (max-width: 960px)`). Cada tabla con scroll interno si excede altura. **Closed**
 - Si `/ocr_info` falla (502 upstream, 503 storage, 404 imagen), el dashboard muestra mensaje de error en el panel derecho sin romper el resto de la pagina. **Closed**
+- En mobile, al seleccionar una tienda se muestra una confirmacion compacta persistente con check textual, nombre, codigo y ayuda para continuar. **Closed**
+- En mobile, el JSON crudo de `get_image_info` queda oculto por defecto detras de una constante/flag debug en `false`; el codigo y la estructura tipada se conservan para depuracion futura. **Closed**
+- En la subida mobile, enviar `store_name` y `store_code` como metadata opcional en `POST /api/v1/images`; backend la persiste en `images` y dashboard la muestra junto a fecha de carga y nombre de archivo. **Closed**
+- En dashboard, renombrar `JSON breakdown` a un titulo comercial, ocultar `Hershey's view` detras de una constante/flag debug en `false`, y presentar la respuesta API con labels estandar en ingles sin guiones bajos. **Closed**
 
 ## 4) Mapeo de Campos (Closed)
 
@@ -138,7 +142,10 @@ El dashboard debe consumir un modelo interno consistente:
 - El adaptador debe aceptar `unknown` como entrada y devolver un objeto tipado o `null` controlado. **Closed**
 - En mobile no se permite procesar imagen sin tienda seleccionada. **Closed**
 - El flujo mobile debe aceptar `image/jpeg`, `image/jpg` y `image/png` desde captura o archivo local. **Closed**
-- La respuesta mostrada en mobile conserva llaves de `get_image_info` (`status_message`, `total_productos`, `conteo_general`, `acomodo_filas`, `precios`, `detections`, etc.). **Closed**
+- La respuesta procesada en mobile conserva internamente llaves de `get_image_info` (`status_message`, `total_productos`, `conteo_general`, `acomodo_filas`, `precios`, `detections`, etc.) sin renderizar el JSON crudo por defecto. **Closed**
+- La UI mobile debe confirmar explicitamente la tienda activa antes de captura/subida mediante un bloque persistente cercano al selector. **Closed**
+- Si una imagen no tiene metadata de tienda, el dashboard debe mostrar `Store: Not available` sin romper el bloque de detalles. **Closed**
+- La seccion comercial del dashboard no debe exponer nombres de llaves tecnicas del proveedor (`conteo_general`, `acomodo_filas`, `precios`, `xyxy`) como labels visibles; debe usar nombres de negocio en ingles. **Closed**
 
 ## 6) Implementation Spec (Atomic)
 
@@ -156,7 +163,12 @@ El dashboard debe consumir un modelo interno consistente:
 8. En mobile, agregar selector de fuente de imagen (`Camara` o `Archivo`) y soporte de carga `jpg/png`.
 9. Implementar servicio para invocar `POST /get_image_info` con `multipart/form-data` (`image_file`) y query params esperados.
 10. Implementar transformador mobile para convertir respuesta OCR a contenido Hershey's sin romper estructura JSON del endpoint.
-11. Renderizar en mobile el resultado procesado y la tienda seleccionada para validacion operativa.
+11. Renderizar en mobile la tienda seleccionada con confirmacion compacta persistente para validacion operativa.
+12. Mantener el render JSON de respuesta solo para modo debug deshabilitado por defecto.
+13. Persistir metadata opcional de tienda en `images` y exponerla en `ImageItem`.
+14. Mostrar la tienda seleccionada en el bloque de detalles del dashboard junto a fecha de carga y nombre de archivo.
+15. Renombrar la seccion `JSON breakdown` y ocultar `Hershey's view` con flag debug deshabilitado por defecto.
+16. Estandarizar labels visibles del panel de respuesta API a ingles sin guiones bajos.
 
 ## 7) Verified Code (Test Plan)
 
@@ -170,4 +182,8 @@ El dashboard debe consumir un modelo interno consistente:
 - Tests mobile para:
   - bloqueo de procesamiento sin tienda,
   - cambio de fuente camara/archivo,
-  - transformacion de respuesta `get_image_info` manteniendo estructura y datos Hershey's.
+  - transformacion de respuesta `get_image_info` manteniendo estructura y datos Hershey's,
+  - confirmacion compacta de tienda seleccionada,
+  - JSON crudo oculto por defecto.
+- Tests backend/dashboard para metadata de tienda en upload, lectura de imagen y render en detalles.
+- Tests dashboard para titulo comercial, `Hershey's view` oculto por defecto y labels API legibles.

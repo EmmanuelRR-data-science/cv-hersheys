@@ -4,17 +4,27 @@ export type UploadResponse = {
   id: string
   status: string
   message: string
+  store_name?: string | null
+  store_code?: string | null
   created_at: string
 }
 
 export function uploadImage(params: {
   blob: Blob
   filename: string
+  storeName?: string
+  storeCode?: string
   onProgress?: (progressPct: number) => void
 }): Promise<UploadResponse> {
   return new Promise((resolve, reject) => {
     const form = new FormData()
     form.append('file', params.blob, params.filename)
+    if (params.storeName) {
+      form.append('store_name', params.storeName)
+    }
+    if (params.storeCode) {
+      form.append('store_code', params.storeCode)
+    }
 
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${config.apiBaseUrl}/api/v1/images`)

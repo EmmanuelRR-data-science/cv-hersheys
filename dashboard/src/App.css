@@ -417,6 +417,10 @@
   align-items: start;
 }
 
+.kv-pair-grid-single {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 960px) {
   .kv-pair-grid {
     grid-template-columns: 1fr;

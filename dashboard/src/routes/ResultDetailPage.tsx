@@ -17,6 +17,8 @@ import {
 } from '../services/api'
 import { isSalesData } from '../services/resultAdapter'
 
+const SHOW_HERSHEYS_DEBUG_VIEW = false
+
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency }).format(amount)
 }
@@ -34,6 +36,11 @@ function formatDateTime(value: string | null | undefined): string {
     timeStyle: 'short',
     timeZone: 'America/Mexico_City',
   }).format(date)
+}
+
+function formatStoreLabel(image: ImageItem | null): string {
+  if (!image?.store_name) return 'Store: Not available'
+  return image.store_code ? `Store: ${image.store_name} (${image.store_code})` : `Store: ${image.store_name}`
 }
 
 function isOcrInsights(value: unknown): value is OcrInsights {
@@ -231,6 +238,7 @@ export function ResultDetailPage() {
                 <div className="mono">Uploaded: {formatDateTime(result.uploaded_at ?? image?.created_at)}</div>
                 <div className="mono">Processed: {formatDateTime(result.processed_at)}</div>
                 <div className="mono">{image?.original_filename ?? 'File unavailable'}</div>
+                <div className="mono">{formatStoreLabel(image)}</div>
               </div>
             </div>
 
@@ -396,18 +404,23 @@ export function ResultDetailPage() {
               </section>
             ) : null}
 
-            <section className="kv-pair" aria-label="JSON breakdown">
-              <h2 className="panel-title">JSON breakdown</h2>
+            <section className="kv-pair" aria-label="Shelf intelligence">
+              <h2 className="panel-title">Shelf Intelligence</h2>
               <p className="kv-pair-subtitle">
-                Left: Hershey&apos;s view, sourced from `processing_results.results`. Right:
-                untouched provider payload from the OCR&apos;s `get_image_info`, fetched
-                on demand via `/api/v1/images/{'{id}'}/ocr_info`.
+                Standardized OCR findings from the provider API, prepared for commercial
+                review and shelf execution follow-up.
               </p>
-              <div className="kv-pair-grid">
-                <HersheysSummaryTable
-                  salesData={salesData}
-                  resultsPayload={result.results ?? null}
-                />
+              <div
+                className={
+                  SHOW_HERSHEYS_DEBUG_VIEW ? 'kv-pair-grid' : 'kv-pair-grid kv-pair-grid-single'
+                }
+              >
+                {SHOW_HERSHEYS_DEBUG_VIEW ? (
+                  <HersheysSummaryTable
+                    salesData={salesData}
+                    resultsPayload={result.results ?? null}
+                  />
+                ) : null}
                 <OriginalOcrTable
                   status={ocrInfoStatus}
                   payload={ocrInfo}

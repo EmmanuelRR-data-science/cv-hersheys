@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -40,6 +40,8 @@ class ImageItem(BaseModel):
     format: str
     size_bytes: int
     status: str
+    store_name: str | None = None
+    store_code: str | None = None
     created_at: str
 
 
@@ -52,6 +54,8 @@ class ImageUploadResponse(BaseModel):
     id: str
     status: str
     message: str
+    store_name: str | None = None
+    store_code: str | None = None
     created_at: str
 
 
@@ -80,9 +84,18 @@ async def _get_or_create_demo_mobile_user(session: AsyncSession) -> User:
     return demo_user
 
 
+def _clean_optional_form_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
 @router.post("", status_code=201, response_model=ImageUploadResponse)
 async def upload_image(
     file: UploadFile,
+    store_name: str | None = Form(default=None),
+    store_code: str | None = Form(default=None),
     token: str | None = Depends(get_optional_bearer_token),
     session: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings_dep),
@@ -110,6 +123,8 @@ async def upload_image(
     image_id = uuid.uuid4()
     storage_path = f"uploads/{image_id}.{image_format}"
     now = datetime.now(tz=UTC)
+    cleaned_store_name = _clean_optional_form_text(store_name)
+    cleaned_store_code = _clean_optional_form_text(store_code)
 
     try:
         put_bytes(object_name=storage_path, data=data, content_type=file.content_type)
@@ -124,6 +139,8 @@ async def upload_image(
         format=image_format,
         size_bytes=len(data),
         status="pending",
+        store_name=cleaned_store_name,
+        store_code=cleaned_store_code,
         created_at=now,
         updated_at=now,
     )
@@ -139,6 +156,8 @@ async def upload_image(
         id=str(image_id),
         status=image.status,
         message="uploaded",
+        store_name=image.store_name,
+        store_code=image.store_code,
         created_at=now.isoformat(),
     )
 
@@ -196,6 +215,8 @@ async def list_images(
             format=img.format,
             size_bytes=img.size_bytes,
             status=img.status,
+            store_name=img.store_name,
+            store_code=img.store_code,
             created_at=img.created_at.isoformat()
             if hasattr(img.created_at, "isoformat")
             else str(img.created_at),
@@ -238,6 +259,8 @@ async def get_image(
         format=image.format,
         size_bytes=image.size_bytes,
         status=image.status,
+        store_name=image.store_name,
+        store_code=image.store_code,
         created_at=image.created_at.isoformat()
         if hasattr(image.created_at, "isoformat")
         else str(image.created_at),

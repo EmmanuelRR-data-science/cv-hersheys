@@ -78,6 +78,8 @@ export type ImageItem = {
   format: string
   size_bytes: number
   status: string
+  store_name?: string | null
+  store_code?: string | null
   created_at: string
 }
 
