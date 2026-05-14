@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     jwt_access_token_exp_minutes: int = 60 * 24
 
     ocr_api_base_url: str = "http://136.116.56.229:8000/apis/ocr"
-    ocr_api_timeout_seconds: float = 30.0
-    ocr_image_max_bytes: int = 2_500_000
-    ocr_image_max_dimension: int = 2000
+    ocr_api_timeout_seconds: float = 120.0
+    ocr_image_max_bytes: int = 1_000_000
+    ocr_image_max_dimension: int = 1280
 
 
 @lru_cache(maxsize=1)

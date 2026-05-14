@@ -154,7 +154,7 @@ El dashboard debe consumir un modelo interno consistente:
 - Los endpoints de consulta usados por dashboard (`/api/v1/results`, `/api/v1/images`, archivos, anotados y OCR info) deben devolver datos globales a cualquier usuario autenticado; `POST /api/v1/images` conserva modo demo sin login para mobile. **Closed**
 - La seccion `Sales data` no debe renderizarse en modo normal; solo puede mostrarse si la flag de dashboard se reactiva explicitamente. **Closed**
 - La app mobile no debe enviar el blob original de camara/archivo directo al OCR cuando exceda el perfil operativo; debe usar una version JPEG optimizada y mostrar el tamano optimizado en el estado de procesamiento. **Closed**
-- La defensa contra timeouts de OCR no debe depender solo del frontend; el backend aplica el mismo perfil operativo (`2.5 MB`, `2000px`) antes del proxy OCR. **Closed**
+- La defensa contra timeouts de OCR no debe depender solo del frontend; el backend aplica un perfil operativo estricto (`1 MB`, `1280px`) y timeout upstream de `120s` antes del proxy OCR. **Closed**
 
 ## 6) Implementation Spec (Atomic)
 

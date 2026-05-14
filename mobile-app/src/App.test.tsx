@@ -106,9 +106,9 @@ describe('App', () => {
     expect(mockedCompressImageToJpeg).toHaveBeenCalledWith(
       file,
       expect.objectContaining({
-        maxBytes: 2.5 * 1024 * 1024,
-        maxWidth: 2000,
-        maxHeight: 2000,
+        maxBytes: 1 * 1024 * 1024,
+        maxWidth: 1280,
+        maxHeight: 1280,
       }),
     )
     expect(mockedGetImageInfo).toHaveBeenCalledWith(

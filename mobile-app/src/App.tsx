@@ -23,8 +23,8 @@ const STORES = [
 ] as const
 
 const SHOW_DEBUG_JSON = false
-const OCR_IMAGE_MAX_BYTES = Math.min(config.maxUploadBytes, 2.5 * 1024 * 1024)
-const OCR_IMAGE_MAX_DIMENSION = 2000
+const OCR_IMAGE_MAX_BYTES = Math.min(config.maxUploadBytes, 1 * 1024 * 1024)
+const OCR_IMAGE_MAX_DIMENSION = 1280
 
 function toJpegFilename(filename: string): string {
   const trimmed = filename.trim()

@@ -70,7 +70,7 @@ def test_get_image_info_proxy_returns_upstream_payload(monkeypatch: pytest.Monke
     assert body["filename"] == "photo.jpg"
     assert captured["base_url"] == "http://ocr.test/apis/ocr"
     assert captured["size"] < len(payload)
-    assert captured["size"] <= 2_500_000
+    assert captured["size"] <= 1_000_000
     assert captured["filename"] == "photo.jpg"
     assert captured["content_type"] == "image/jpeg"
     assert captured["timeout_seconds"] == 5.0
